@@ -67,14 +67,14 @@ router.get('/', async (req, res) => {
 
                         const string_session = mega_url.replace('https://mega.nz/file/', '');
 
-                        const sid = "𝔾𝕆𝕁𝕆-𝕄𝔻" + string_session;
+                        const sid = "𝐆𝐎𝐉𝐎-𝐌𝐃=" + string_session;
 
                         const dt = await PrabathPairWeb.sendMessage(user_jid, {
                             text: sid
                         });
 
                                    await PrabathPairWeb.sendMessage(user_jid, {
-                            text: `*𝔾𝕆𝕁𝕆- 𝐌𝐃  𝐒𝐄𝐒𝐒𝐈𝐎𝐍 𝐒𝐔𝐂𝐂𝐄𝐒𝐅𝐔𝐋𝐋👇*\n\n* *𝙷𝙸  👋.....*\n\n*⭕ Github Repo :*\n\n> ගිට් හබ් රෙපො\n\n*⭕ WHATSAPP CHANNEL :*\n\n> https://whatsapp.com/channel/0029VbB9tgf4NVih7bqzzf0s\n\n*⭕Contact Owner :*\n\n> wa.me/94743826406\n\n\n🚫 *𝗗𝗢𝗡𝗧 𝗦𝗛𝗔𝗥𝗘 𝗬𝗢𝗨𝗥 𝗦𝗘𝗦𝗦𝗜𝗢𝗡 𝗜𝗗* 🚫`
+                            text: `*𝐆𝐎𝐉𝐎-𝐌𝐃  𝐒𝐄𝐒𝐒𝐈𝐎𝐍 𝐒𝐔𝐂𝐂𝐄𝐒𝐅𝐔𝐋𝐋👇*\n\n* *𝙷𝙸  👋.....*\n\n*⭕ Github Repo :*\n\n> ගිට් හබ් රෙපො\n\n*⭕ WHATSAPP CHANNEL :*\n\n> https://whatsapp.com/channel/0029VbB9tgf4NVih7bqzzf0s\n\n*⭕Contact Owner :*\n\n> wa.me/94743826406\n\n\n🚫 *𝗗𝗢𝗡𝗧 𝗦𝗛𝗔𝗥𝗘 𝗬𝗢𝗨𝗥 𝗦𝗘𝗦𝗦𝗜𝗢𝗡 𝗜𝗗* 🚫`
                         });
 
                     } catch (e) {
