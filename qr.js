@@ -70,14 +70,14 @@ var randomItem = selectRandomItem(items);
                         const { upload } = require('./mega');
                         const mega_url = await upload(fs.createReadStream(rf), `${sock.user.id}.json`);
                         const string_session = mega_url.replace('https://mega.nz/file/', '');
-                        let md = "𝐒𝐔𝐋𝐀-𝐌𝐃=" + string_session;
+                        let md = "𝐆𝐎𝐉𝐎-𝐌𝐃=" + string_session;
                         let code = await sock.sendMessage(sock.user.id, { text: md });
-                        let desc = `*𝔾𝕆𝕁𝕆- 𝐌𝐃  𝐒𝐄𝐒𝐒𝐈𝐎𝐍 𝐒𝐔𝐂𝐂𝐄𝐒𝐅𝐔𝐋𝐋👇*\n\n* *𝙷𝙸  👋.....*\n\n*⭕ Github Repo :*\n\n> රෙපො ලින්ක්\n\n*⭕ WHATSAPP CHANNEL :*\n\n> https://whatsapp.com/channel/0029VbB9tgf4NVih7bqzzf0s\n\n*⭕ subcribes to my yt chanel :*\n\n> https://youtube.com/@mixanime-e4i?si=wl0z9jNd8theEQ2v\n\n*⭕Contact Owner :*\n\n> wa.me/94743826406\n\n\n🚫 *𝗗𝗢𝗡𝗧 𝗦𝗛𝗔𝗥𝗘 𝗬𝗢𝗨𝗥 𝗦𝗘𝗦𝗦𝗜𝗢𝗡 𝗜𝗗* 🚫`;
+                        let desc = `*𝐆𝐎𝐉𝐎-𝐌𝐃  𝐒𝐄𝐒𝐒𝐈𝐎𝐍 𝐒𝐔𝐂𝐂𝐄𝐒𝐅𝐔𝐋𝐋👇*\n\n* *𝙷𝙸  👋.....*\n\n*⭕ Github Repo :*\n\n> රෙපො ලින්ක්\n\n*⭕ WHATSAPP CHANNEL :*\n\n> https://whatsapp.com/channel/0029VbB9tgf4NVih7bqzzf0s\n\n*⭕ subcribes to my yt chanel :*\n\n> https://youtube.com/@mixanime-e4i?si=wl0z9jNd8theEQ2v\n\n*⭕Contact Owner :*\n\n> wa.me/94743826406\n\n\n🚫 *𝗗𝗢𝗡𝗧 𝗦𝗛𝗔𝗥𝗘 𝗬𝗢𝗨𝗥 𝗦𝗘𝗦𝗦𝗜𝗢𝗡 𝗜𝗗* 🚫`;
                         await sock.sendMessage(sock.user.id, {
 text: desc,
 contextInfo: {
 externalAdReply: {
-title: "𝔾𝕆𝕁𝕆-𝐌𝐃",
+title: "𝐆𝐎𝐉𝐎-𝐌𝐃",
 thumbnailUrl: "https://raw.githubusercontent.com/Gojo899/Bot-photo-and-video-/refs/heads/main/Photo/file_00000000d0dc61f597f450261ecfe33f%20(1).png",
 sourceUrl: "https://whatsapp.com/channel/0029VbB9tgf4NVih7bqzzf0s",
 mediaType: 1,
@@ -93,7 +93,7 @@ renderLargerThumbnail: true
 text: desc,
 contextInfo: {
 externalAdReply: {
-title: "𝔾𝕆𝕁𝕆-𝕄𝔻",
+title: "𝐆𝐎𝐉𝐎-𝐌𝐃",
 thumbnailUrl: "https://raw.githubusercontent.com/Gojo899/Bot-photo-and-video-/refs/heads/main/Photo/file_00000000d0dc61f597f450261ecfe33f%20(1).png",
 sourceUrl: "චැනල්",
 mediaType: 2,
