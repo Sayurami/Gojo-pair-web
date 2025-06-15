@@ -4,38 +4,30 @@
   "description": "Multi-functional WhatsApp bot (pair-code, web).",
   "main": "index.js",
 
-  /* 👉  Nixpacks දැක්කම Node 20 image එක තෝරන්න */
   "engines": {
     "node": ">=20.0.0"
   },
 
-  /* 👉  pm2-runtime foreground mode – Docker / Railway exit නොවෙන්න */
   "scripts": {
     "start": "pm2-runtime index.js --name vajira-md",
-    "dev":   "node index.js",
+    "dev": "node index.js",
     "stop": "pm2 stop vajira-md",
     "restart": "pm2 restart vajira-md"
   },
 
   "dependencies": {
-    /* --- core bot libs --- */
-    "@whiskeysockets/baileys": "github:seiren-primrose/PL-Baileys",   // Needs Node 20+
+    "@whiskeysockets/baileys": "github:seiren-primrose/PL-Baileys",
     "@adiwajshing/keyed-db": "^0.2.4",
     "async-mutex": "^0.5.0",
-
-    /* --- helpers --- */
     "awesome-phonenumber": "^7.5.0",
     "body-parser": "^2.2.0",
     "express": "^5.1.0",
     "megajs": "^1.3.7",
     "pino": "^9.7.0",
     "phone": "^3.1.59",
-    "qrcode": "^1.5.4",
-
-    /* --- process manager --- */
-    "pm2": "^6.0.8"                /* latest stable → Node 20 ready 0 */
+    "pm2": "^6.0.8",
+    "qrcode": "^1.5.4"
   },
 
-  /* 👉  optional: treat files as ES-modules */
   "type": "module"
 }
