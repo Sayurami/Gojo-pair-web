@@ -9,7 +9,7 @@ const code = require('./pair');
 
 require('events').EventEmitter.defaultMaxListeners = 500;
 
-// Body parser මුලින්ම දැමු
+// Body parser මුලින්ම
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -32,11 +32,8 @@ app.get('/', (req, res) => {
 
 // Server Start
 app.listen(PORT, () => {
-    console.log(`
-⭐ Don't forget to give a star!
-
-🚀 Server running on http://localhost:${PORT}
-    `);
+    console.log(`⭐ Don't forget to give a star!`);
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
 
 module.exports = app;
