@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const admin = require('firebase-admin');
-const serviceAccount = require('./firebase-service.json');
+const serviceAccount = require('./firebase.json');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
