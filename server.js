@@ -6,7 +6,7 @@ const serviceAccount = require('./firebase-service.json');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  storageBucket: '<YOUR_FIREBASE_PROJECT_ID>.appspot.com'
+  storageBucket: '<ma-a-94b9e>.appspot.com'
 });
 
 const db = admin.firestore();
