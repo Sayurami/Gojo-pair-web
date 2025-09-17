@@ -5,28 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gojo Gallery</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f5f5;
-      text-align: center;
-      padding: 20px;
-    }
-    h1 { color: #333; }
+    body { font-family: Arial, sans-serif; text-align: center; background: #f5f5f5; }
+    h1 { margin-top: 20px; }
     form { margin: 20px auto; }
-    .gallery {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-      margin-top: 20px;
-    }
-    .gallery img {
-      width: 150px;
-      height: 150px;
-      object-fit: cover;
-      border-radius: 8px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.2);
-    }
+    .gallery { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+    .gallery img { width: 150px; height: 150px; object-fit: cover; border-radius: 8px; }
   </style>
 </head>
 <body>
@@ -43,21 +26,32 @@
     const form = document.getElementById('uploadForm');
     const gallery = document.getElementById('gallery');
 
+    async function loadGallery() {
+      const res = await fetch('/uploads/');
+      const files = await res.json();
+      gallery.innerHTML = '';
+      files.forEach(file => {
+        const img = document.createElement('img');
+        img.src = '/uploads/' + file;
+        gallery.appendChild(img);
+      });
+    }
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const formData = new FormData(form);
-      const response = await fetch('/upload', {
-        method: 'POST',
-        body: formData
-      });
+      const response = await fetch('/upload', { method: 'POST', body: formData });
       const data = await response.json();
       if (data.success) {
-        const img = document.createElement('img');
-        img.src = data.filePath;
-        gallery.appendChild(img);
+        await loadGallery();
         form.reset();
+      } else {
+        alert('Upload failed');
       }
     });
+
+    // Load gallery when page opens
+    loadGallery();
   </script>
 </body>
 </html>
