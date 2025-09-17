@@ -22,8 +22,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Metadata file path
-const metaFile = path.join(__dirname, 'public', 'uploads', 'meta.json');
+// Metadata file
+const metaFile = path.join(uploadDir, 'meta.json');
 
 // Upload route
 app.post('/upload', upload.single('photo'), (req, res) => {
@@ -45,7 +45,7 @@ app.post('/upload', upload.single('photo'), (req, res) => {
   res.json({ success: true, filePath: '/uploads/' + req.file.filename });
 });
 
-// Return uploaded files + metadata
+// Return metadata for gallery
 app.get('/uploads/', (req, res) => {
   let meta = [];
   if (fs.existsSync(metaFile)) {
