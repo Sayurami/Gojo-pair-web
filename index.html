@@ -3,56 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>File Upload to Mega</title>
+  <title>Upload to Mega</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      background-color: #f2f2f2;
-    }
-    h1 {
-      color: #333;
-    }
-    form {
-      background-color: #fff;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
-    }
-    input[type="file"] {
-      margin-bottom: 10px;
-    }
-    button {
-      padding: 10px 20px;
-      background-color: #007BFF;
-      color: #fff;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #0056b3;
-    }
-    .result {
-      margin-top: 20px;
-    }
+    body { font-family: Arial; display:flex; justify-content:center; align-items:center; height:100vh; background:#f2f2f2; flex-direction:column; }
+    form { background:#fff; padding:20px; border-radius:10px; box-shadow:0px 0px 10px rgba(0,0,0,0.1); }
+    input[type=file] { margin-bottom:10px; }
+    button { padding:10px 20px; background:#007BFF; color:#fff; border:none; border-radius:5px; cursor:pointer; }
+    button:hover { background:#0056b3; }
+    #result { margin-top:20px; }
   </style>
 </head>
 <body>
-
   <h1>Upload File to Mega</h1>
-
-  <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data">
+  <form id="uploadForm" enctype="multipart/form-data">
     <input type="file" name="photo" required />
-    <br />
+    <br>
     <button type="submit">Upload</button>
   </form>
-
-  <div class="result" id="result"></div>
+  <div id="result"></div>
 
   <script>
     const form = document.getElementById('uploadForm');
@@ -60,17 +28,11 @@
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-
       const formData = new FormData(form);
-
       resultDiv.innerHTML = "Uploading... ⏳";
 
       try {
-        const res = await fetch('/upload', {
-          method: 'POST',
-          body: formData
-        });
-
+        const res = await fetch('/upload', { method: 'POST', body: formData });
         const text = await res.text();
         resultDiv.innerHTML = text;
       } catch (err) {
@@ -79,6 +41,5 @@
       }
     });
   </script>
-
 </body>
 </html>
