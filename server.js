@@ -23,51 +23,38 @@ app.post('/upload', upload.single('photo'), async (req, res) => {
 
   try {
     // Mega login
-    const storage = Mega({
-      email: settings.MEGA_EMAIL,
-      password: settings.MEGA_PASSWORD,
+    const storage = Mega({ email: settings.MEGA_EMAIL, password: settings.MEGA_PASSWORD });
+
+    storage.on('ready', () => {
+      const file = storage.upload({
+        name: req.file.originalname,
+        size: fs.statSync(req.file.path).size
+      });
+
+      const fileStream = fs.createReadStream(req.file.path);
+      fileStream.pipe(file);
+
+      file.on('complete', () => {
+    fs.unlinkSync(req.file.path); // delete temp file
+
+    const megaLink = file.link(); // function call එක
+    res.send(`File uploaded successfully! <br>Mega Link: <a href="${megaLink}" target="_blank">${megaLink}</a>`);
+});
+
+
+      file.on('error', (err) => {
+        console.error(err);
+        res.status(500).send('Upload failed!');
+      });
     });
 
     storage.on('error', (err) => {
-      console.error('Mega login error:', err);
-      return res.status(500).send('Mega login failed!');
+      console.error(err);
+      res.status(500).send('Mega login failed!');
     });
 
-    storage.on('ready', async () => {
-      try {
-        const fileSize = fs.statSync(req.file.path).size;
-
-        // Create the Mega upload file
-        const file = storage.upload({
-          name: req.file.originalname,
-          size: fileSize,
-        });
-
-        // Pipe local file to Mega
-        fs.createReadStream(req.file.path).pipe(file);
-
-        file.on('complete', () => {
-          // Delete local temp file
-          fs.unlinkSync(req.file.path);
-
-          // Generate Mega download link
-          const megaLink = file.link(); // Use function to generate link
-          res.send(
-            `File uploaded successfully! <br>Mega Link: <a href="${megaLink}" target="_blank">${megaLink}</a>`
-          );
-        });
-
-        file.on('error', (err) => {
-          console.error('File upload error:', err);
-          res.status(500).send('Upload failed!');
-        });
-      } catch (err) {
-        console.error('Upload handling error:', err);
-        res.status(500).send('Upload failed!');
-      }
-    });
   } catch (err) {
-    console.error('Unexpected error:', err);
+    console.error(err);
     res.status(500).send('Upload failed!');
   }
 });
