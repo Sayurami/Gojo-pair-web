@@ -3,23 +3,57 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Upload to Mega</title>
+  <title>Gojo Pair Web - File Upload</title>
   <style>
-    body { font-family: Arial; display:flex; justify-content:center; align-items:center; height:100vh; background:#f2f2f2; flex-direction:column; }
-    form { background:#fff; padding:20px; border-radius:10px; box-shadow:0px 0px 10px rgba(0,0,0,0.1); }
-    input[type=file] { margin-bottom:10px; }
-    button { padding:10px 20px; background:#007BFF; color:#fff; border:none; border-radius:5px; cursor:pointer; }
-    button:hover { background:#0056b3; }
-    #result { margin-top:20px; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f0f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    h1 {
+      color: #222;
+    }
+    form {
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    input[type="file"] {
+      margin: 10px 0;
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    #result {
+      margin-top: 20px;
+      font-size: 16px;
+    }
   </style>
 </head>
 <body>
-  <h1>Upload File to Mega</h1>
+  <h1>Upload Your File</h1>
   <form id="uploadForm" enctype="multipart/form-data">
     <input type="file" name="photo" required />
-    <br>
+    <br />
     <button type="submit">Upload</button>
   </form>
+
   <div id="result"></div>
 
   <script>
@@ -28,16 +62,20 @@
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+
       const formData = new FormData(form);
-      resultDiv.innerHTML = "Uploading... ⏳";
+      resultDiv.innerHTML = "Uploading...";
 
       try {
-        const res = await fetch('/upload', { method: 'POST', body: formData });
-        const text = await res.text();
+        const response = await fetch('/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        const text = await response.text();
         resultDiv.innerHTML = text;
       } catch (err) {
-        console.error(err);
-        resultDiv.innerHTML = "Upload failed ❌";
+        resultDiv.innerHTML = "Upload failed!";
       }
     });
   </script>
