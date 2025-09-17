@@ -8,14 +8,15 @@ const bcrypt = require('bcryptjs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// 🔑 Config
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD_HASH = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'mypassword', 10);
 
+// 📂 Upload path
 const uploadDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-// Multer storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
@@ -28,12 +29,12 @@ app.use(express.urlencoded({ extended: true }));
 
 const metaFile = path.join(uploadDir, 'meta.json');
 
-// 🟢 Generate JWT Token
+// 🔑 Generate JWT
 function generateToken(user) {
   return jwt.sign({ username: user.username }, JWT_SECRET, { expiresIn: '1h' });
 }
 
-// 🛡 Verify Token Middleware
+// 🛡 Verify JWT
 function verifyToken(req, res, next) {
   const token = req.headers['authorization'];
   if (!token) return res.status(403).json({ error: 'No token provided' });
@@ -45,7 +46,7 @@ function verifyToken(req, res, next) {
   });
 }
 
-// 🟢 Admin Login Route
+// 🟢 Login route
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
 
@@ -57,7 +58,7 @@ app.post('/login', (req, res) => {
   res.json({ token });
 });
 
-// 🔒 Upload (Protected)
+// 🔒 Upload route (Admin only)
 app.post('/upload', verifyToken, upload.single('photo'), (req, res) => {
   if (!req.file) return res.status(400).send('No file uploaded!');
   const { name, description } = req.body;
@@ -75,14 +76,14 @@ app.post('/upload', verifyToken, upload.single('photo'), (req, res) => {
   res.json({ success: true, filePath: '/uploads/' + req.file.filename });
 });
 
-// 🌍 Public Gallery (Anyone can view)
+// 🌍 Public route (Anyone can view)
 app.get('/uploads/', (req, res) => {
   let meta = [];
   if (fs.existsSync(metaFile)) meta = JSON.parse(fs.readFileSync(metaFile));
   res.json(meta);
 });
 
-// 🔒 Delete Photo (Protected)
+// 🔒 Delete file (Admin only)
 app.delete('/uploads/:file', verifyToken, (req, res) => {
   const fileName = req.params.file;
   let meta = [];
@@ -91,11 +92,9 @@ app.delete('/uploads/:file', verifyToken, (req, res) => {
   const index = meta.findIndex(m => m.file === fileName);
   if (index === -1) return res.status(404).send('File not found');
 
-  // Remove file
   const filePath = path.join(uploadDir, fileName);
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
-  // Remove metadata
   meta.splice(index, 1);
   fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
 
