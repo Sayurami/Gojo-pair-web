@@ -8,37 +8,50 @@ const PORT = process.env.PORT || 3000;
 
 // Ensure uploads folder exists
 const uploadDir = path.join(__dirname, 'public', 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-// Multer config
+// Multer storage
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname)); // unique name
-  }
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
 });
 const upload = multer({ storage });
 
+// Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Metadata file path
+const metaFile = path.join(__dirname, 'public', 'uploads', 'meta.json');
 
 // Upload route
 app.post('/upload', upload.single('photo'), (req, res) => {
   if (!req.file) return res.status(400).send('No file uploaded!');
+  const { name, description } = req.body;
+
+  // Save metadata
+  let meta = [];
+  if (fs.existsSync(metaFile)) {
+    meta = JSON.parse(fs.readFileSync(metaFile));
+  }
+  meta.push({
+    file: req.file.filename,
+    name: name || 'No Name',
+    description: description || 'No Description'
+  });
+  fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
+
   res.json({ success: true, filePath: '/uploads/' + req.file.filename });
 });
 
-// Route to return uploaded files list
+// Return uploaded files + metadata
 app.get('/uploads/', (req, res) => {
-  fs.readdir(uploadDir, (err, files) => {
-    if (err) return res.json([]);
-    // Only send image files (filter)
-    const images = files.filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f));
-    res.json(images);
-  });
+  let meta = [];
+  if (fs.existsSync(metaFile)) {
+    meta = JSON.parse(fs.readFileSync(metaFile));
+  }
+  res.json(meta);
 });
 
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
