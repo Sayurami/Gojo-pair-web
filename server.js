@@ -7,9 +7,9 @@ require('dotenv').config();
 const settings = require('./settings');
 
 const app = express();
-const PORT = process.env.PORT || settings.PORT || 3000;
+const PORT = settings.PORT || 3000;
 
-// ✅ Ensure uploads folder exists (important for Heroku)
+// ✅ Ensure uploads folder exists (Heroku restart issue fix)
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 
@@ -27,49 +27,54 @@ app.post('/upload', upload.single('photo'), async (req, res) => {
 
   try {
     // ✅ Mega login
-    const storage = Mega({ 
-      email: settings.MEGA_EMAIL, 
-      password: settings.MEGA_PASSWORD 
+    const storage = Mega({
+      email: settings.MEGA_EMAIL,
+      password: settings.MEGA_PASSWORD
     });
 
     storage.on('ready', () => {
-      // ✅ Start upload
+      console.log('✅ Mega login success!');
+
+      // ✅ Upload to Mega
       const file = storage.upload({
         name: req.file.originalname,
         size: fs.statSync(req.file.path).size
       });
 
-      const fileStream = fs.createReadStream(req.file.path);
-      fileStream.pipe(file);
+      fs.createReadStream(req.file.path).pipe(file);
 
-      // ✅ Wait until file ready (important - not "complete")
-      file.on('ready', () => {
-        try {
+      file.on('complete', () => {
+        console.log('✅ File uploaded to Mega');
+
+        // ✅ Generate public link safely (async)
+        file.link((err, link) => {
           fs.unlinkSync(req.file.path); // delete temp file
-        } catch (e) {
-          console.warn("Temp file delete failed:", e);
-        }
 
-        const megaLink = file.link(); // ✅ Get shareable link
-        res.send(`✅ File uploaded successfully! <br><br>Mega Link: <a href="${megaLink}" target="_blank">${megaLink}</a>`);
+          if (err) {
+            console.error('❌ Mega link generation failed:', err);
+            return res.status(500).send('Link generation failed!');
+          }
+
+          console.log('🔗 Link:', link);
+          res.send(`✅ File uploaded successfully!<br><a href="${link}" target="_blank">${link}</a>`);
+        });
       });
 
       file.on('error', (err) => {
-        console.error('File upload error:', err);
+        console.error('❌ File upload failed:', err);
         res.status(500).send('Upload failed!');
       });
     });
 
     storage.on('error', (err) => {
-      console.error('Mega login error:', err);
-      res.status(500).send('Mega login failed! Check credentials in settings.js');
+      console.error('❌ Mega login failed:', err);
+      res.status(500).send('Mega login failed! Check credentials.');
     });
 
   } catch (err) {
-    console.error('Unexpected error:', err);
+    console.error('❌ Unexpected server error:', err);
     res.status(500).send('Upload failed!');
   }
 });
 
-// Start server
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
