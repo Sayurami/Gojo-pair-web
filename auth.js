@@ -1,4 +1,4 @@
-const ADMIN_USERNAME = "sayuramihiranga4@gmail.com";
+const ADMIN_USERNAME = "sayura";
 const ADMIN_PASSWORD = "Sayura2008***7";
 
 // Simple verify middleware
