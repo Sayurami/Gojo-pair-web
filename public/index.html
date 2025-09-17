@@ -5,28 +5,38 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🔥 Gojo Photo Gallery</title>
 <style>
-  /* Base styles */
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+  /* Animated gradient background */
   body {
     font-family: 'Poppins', sans-serif;
-    background: linear-gradient(135deg, #1a1a1a, #111);
-    color: #fff;
     margin: 0;
     padding: 20px;
     text-align: center;
+    background: linear-gradient(-45deg, #ff4c00, #ff8a00, #ff1a00, #ff5733);
+    background-size: 400% 400%;
+    animation: gradientBG 15s ease infinite;
+    color: #fff;
+  }
+
+  @keyframes gradientBG {
+    0% {background-position: 0% 50%;}
+    50% {background-position: 100% 50%;}
+    100% {background-position: 0% 50%;}
   }
 
   h1 {
-    font-size: 2.5rem;
+    font-size: 2.8rem;
     margin: 20px 0;
-    color: #ff4c00;
-    text-shadow: 0 0 10px #ff4c00, 0 0 20px #ff8a00;
+    color: #fff;
+    text-shadow: 0 0 10px #fff, 0 0 20px #ff4c00, 0 0 30px #ff8a00;
   }
 
   form {
-    background: #222;
+    background: rgba(0,0,0,0.5);
     padding: 20px;
-    border-radius: 15px;
-    box-shadow: 0 0 20px rgba(255, 76, 0, 0.5);
+    border-radius: 20px;
+    backdrop-filter: blur(8px);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -37,25 +47,27 @@
 
   form input, form textarea {
     width: 100%;
-    padding: 10px;
-    border-radius: 10px;
+    padding: 12px;
+    border-radius: 12px;
     border: none;
     outline: none;
     font-size: 1rem;
-    background: #333;
+    background: rgba(255,255,255,0.1);
     color: #fff;
+    backdrop-filter: blur(4px);
   }
 
   form button {
     background: linear-gradient(45deg, #ff4c00, #ff8a00);
     border: none;
-    padding: 10px 20px;
+    padding: 10px 25px;
     color: #fff;
     font-size: 1rem;
-    border-radius: 10px;
+    border-radius: 12px;
     cursor: pointer;
-    transition: all 0.3s ease;
+    font-weight: 600;
     box-shadow: 0 0 10px #ff4c00, 0 0 20px #ff8a00;
+    transition: all 0.3s ease;
   }
 
   form button:hover {
@@ -72,11 +84,11 @@
   }
 
   .gallery-item {
-    background: #222;
-    border-radius: 15px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 20px;
     overflow: hidden;
     width: 220px;
-    box-shadow: 0 0 15px rgba(255, 76, 0, 0.5);
+    box-shadow: 0 0 15px rgba(255,76,0,0.5);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
   }
 
@@ -106,7 +118,7 @@
   .gallery-item p {
     margin: 0 10px 10px 10px;
     font-size: 0.9rem;
-    color: #ddd;
+    color: #fff;
     word-break: break-word;
   }
 
@@ -131,7 +143,6 @@
     transform: scale(1.05);
     box-shadow: 0 0 10px #ff4c00, 0 0 20px #ff8a00;
   }
-
 </style>
 </head>
 <body>
