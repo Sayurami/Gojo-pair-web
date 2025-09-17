@@ -1,14 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>File Upload</title>
+  <title>Gojo Mega Upload</title>
 </head>
 <body>
-<h1>Upload Image</h1>
-<form action="/upload" method="post" enctype="multipart/form-data">
-  <input type="file" name="photo" required>
-  <button type="submit">Upload</button>
-</form>
+  <h1>Upload Photo to Mega</h1>
+  <form action="/upload" method="post" enctype="multipart/form-data">
+    <input type="file" name="photo" accept="image/*" required>
+    <button type="submit">Upload</button>
+  </form>
 </body>
 </html>
