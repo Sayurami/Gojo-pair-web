@@ -25,6 +25,7 @@ app.post('/upload', upload.single('photo'), async (req, res) => {
     // Mega login
     const storage = Mega({ email: settings.MEGA_EMAIL, password: settings.MEGA_PASSWORD });
 
+    // Wait until Mega login is ready
     storage.on('ready', () => {
       const file = storage.upload({
         name: req.file.originalname,
@@ -34,9 +35,10 @@ app.post('/upload', upload.single('photo'), async (req, res) => {
       const fileStream = fs.createReadStream(req.file.path);
       fileStream.pipe(file);
 
-      file.on('complete', () => {
-        fs.unlinkSync(req.file.path); // delete temp file
-        res.send(`File uploaded successfully! <br>Mega Link: <a href="${file.link}" target="_blank">${file.link}</a>`);
+      // When upload is complete and link is ready
+      file.on('ready', () => {
+        fs.unlinkSync(req.file.path); // Delete temp file
+        res.send(`File uploaded successfully! <br>Mega Link: <a href="${file.link()}" target="_blank">${file.link()}</a>`);
       });
 
       file.on('error', (err) => {
