@@ -3,5 +3,5 @@ module.exports = {
   CLOUDINARY_CLOUD_NAME: "duc50ixrz",
   CLOUDINARY_API_KEY: "791349818611237",
   CLOUDINARY_API_SECRET: "VfGhJkL12345MnOpQrSt",
-  PORT: 3000
+  PORT: process.env.PORT || 3000
 };
