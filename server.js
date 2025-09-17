@@ -9,9 +9,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // 🔑 Config
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
-const ADMIN_PASSWORD_HASH = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'mypassword', 10);
+const JWT_SECRET = process.env.JWT_SECRET || 'Sayura2008***7111s';
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'sayura';
+const ADMIN_PASSWORD_HASH = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'Sayura2008***7', 10);
 
 // 📂 Upload path
 const uploadDir = path.join(__dirname, 'public', 'uploads');
