@@ -3,10 +3,10 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const Mega = require('megajs');
-require('dotenv').config();
+const settings = require('./settings');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || settings.PORT;
 
 // Ensure uploads folder exists
 const uploadDir = path.join(__dirname, 'uploads');
@@ -25,10 +25,9 @@ app.post('/upload', upload.single('photo'), async (req, res) => {
   if (!req.file) return res.send('No file uploaded!');
 
   try {
-    // Mega login
     const storage = Mega({
-      email: process.env.MEGA_EMAIL,
-      password: process.env.MEGA_PASSWORD
+      email: settings.MEGA_EMAIL,
+      password: settings.MEGA_PASSWORD
     });
 
     storage.on('ready', () => {
