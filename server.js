@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'sayura';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Sayura2008***7';
 
-// Upload path
+// Upload directory
 const uploadDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
@@ -84,14 +84,14 @@ app.post('/delete', verifyAdmin, (req, res) => {
   res.json({ success: true, message: 'File deleted' });
 });
 
-// Public gallery & download (no login required)
+// Public gallery & download
 app.get('/uploads/', (req, res) => {
   let meta = [];
   if (fs.existsSync(metaFile)) meta = JSON.parse(fs.readFileSync(metaFile));
   res.json(meta);
 });
 
-// Serve file downloads directly
+// Serve files directly
 app.get('/uploads/:file', (req, res) => {
   const filePath = path.join(uploadDir, req.params.file);
   if (fs.existsSync(filePath)) {
