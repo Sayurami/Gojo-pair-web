@@ -2,16 +2,13 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 🔑 Config
-const JWT_SECRET = process.env.JWT_SECRET || 'Sayura2008***7111s';
+// 🔑 Admin credentials (simple)
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'sayura';
-const ADMIN_PASSWORD_HASH = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'Sayura2008***7', 10);
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Sayura2008***7';
 
 // 📂 Upload path
 const uploadDir = path.join(__dirname, 'public', 'uploads');
@@ -29,37 +26,28 @@ app.use(express.urlencoded({ extended: true }));
 
 const metaFile = path.join(uploadDir, 'meta.json');
 
-// 🔑 Generate JWT
-function generateToken(user) {
-  return jwt.sign({ username: user.username }, JWT_SECRET, { expiresIn: '1h' });
-}
-
-// 🛡 Verify JWT
-function verifyToken(req, res, next) {
-  const token = req.headers['authorization'];
-  if (!token) return res.status(403).json({ error: 'No token provided' });
-
-  jwt.verify(token.replace('Bearer ', ''), JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(401).json({ error: 'Unauthorized' });
-    req.user = decoded;
+// 🔒 Simple admin verify middleware
+function verifyAdmin(req, res, next) {
+  const { username, password } = req.body;
+  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
     next();
-  });
+  } else {
+    res.status(403).json({ success: false, message: 'Unauthorized' });
+  }
 }
 
-// 🟢 Login route
+// 🟢 Login route (simple)
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
-
-  if (username !== ADMIN_USERNAME || !bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) {
-    return res.status(401).json({ error: 'Invalid username or password' });
+  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+    res.json({ success: true, message: 'Login successful' });
+  } else {
+    res.status(401).json({ success: false, message: 'Invalid username or password' });
   }
-
-  const token = generateToken({ username });
-  res.json({ token });
 });
 
 // 🔒 Upload route (Admin only)
-app.post('/upload', verifyToken, upload.single('photo'), (req, res) => {
+app.post('/upload', verifyAdmin, upload.single('photo'), (req, res) => {
   if (!req.file) return res.status(400).send('No file uploaded!');
   const { name, description } = req.body;
 
@@ -84,21 +72,23 @@ app.get('/uploads/', (req, res) => {
 });
 
 // 🔒 Delete file (Admin only)
-app.delete('/uploads/:file', verifyToken, (req, res) => {
-  const fileName = req.params.file;
+app.post('/delete', verifyAdmin, (req, res) => {
+  const { file } = req.body;
+  if (!file) return res.status(400).send('File name required');
+
   let meta = [];
   if (fs.existsSync(metaFile)) meta = JSON.parse(fs.readFileSync(metaFile));
 
-  const index = meta.findIndex(m => m.file === fileName);
+  const index = meta.findIndex(m => m.file === file);
   if (index === -1) return res.status(404).send('File not found');
 
-  const filePath = path.join(uploadDir, fileName);
+  const filePath = path.join(uploadDir, file);
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
   meta.splice(index, 1);
   fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
 
-  res.json({ success: true });
+  res.json({ success: true, message: 'File deleted' });
 });
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
