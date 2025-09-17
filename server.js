@@ -6,9 +6,9 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Admin credentials
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'sayura';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Sayura2008***7';
+// Hardcoded admin
+const ADMIN_USERNAME = 'sayura';
+const ADMIN_PASSWORD = 'Sayura2008***7';
 
 // Upload folder
 const uploadDir = path.join(__dirname, 'public', 'uploads');
@@ -26,15 +26,15 @@ app.use(express.urlencoded({ extended: true }));
 
 const metaFile = path.join(uploadDir, 'meta.json');
 
-// Verify admin middleware
+// Verify admin
 function verifyAdmin(req, res, next) {
   const { username, password } = req.body;
-  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) next();
+  if(username === ADMIN_USERNAME && password === ADMIN_PASSWORD) next();
   else res.status(403).json({ success:false, message:'Unauthorized' });
 }
 
 // Admin login
-app.post('/login', (req, res) => {
+app.post('/login', (req,res)=>{
   const { username, password } = req.body;
   if(username === ADMIN_USERNAME && password === ADMIN_PASSWORD)
     res.json({ success:true, message:'Login successful' });
@@ -42,7 +42,7 @@ app.post('/login', (req, res) => {
 });
 
 // Admin upload
-app.post('/upload', verifyAdmin, upload.single('photo'), (req, res) => {
+app.post('/upload', verifyAdmin, upload.single('photo'), (req,res)=>{
   if(!req.file) return res.status(400).send('No file uploaded!');
   const { name, description } = req.body;
 
@@ -75,14 +75,15 @@ app.post('/delete', verifyAdmin, (req,res)=>{
   res.json({ success:true, message:'File deleted' });
 });
 
-// Public gallery & download
+// Public gallery
 app.get('/uploads/', (req,res)=>{
   let meta=[];
   if(fs.existsSync(metaFile)) meta=JSON.parse(fs.readFileSync(metaFile));
   res.json(meta);
 });
 
-app.get('/uploads/:file',(req,res)=>{
+// Public file download
+app.get('/uploads/:file', (req,res)=>{
   const filePath = path.join(uploadDir, req.params.file);
   if(fs.existsSync(filePath)) res.download(filePath);
   else res.status(404).send('File not found');
