@@ -1,70 +1,76 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
+const admin = require('firebase-admin');
+const serviceAccount = require('./firebase-service.json');
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  storageBucket: '<YOUR_FIREBASE_PROJECT_ID>.appspot.com'
+});
+
+const db = admin.firestore();
+const bucket = admin.storage().bucket();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const uploadDir = path.join(__dirname, 'public', 'uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-// Multer storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
-});
-const upload = multer({ storage });
-
+const upload = multer({ storage: multer.memoryStorage() });
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const metaFile = path.join(uploadDir, 'meta.json');
+// Upload photo
+app.post('/upload', upload.single('photo'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).send('No file uploaded!');
+    const { name, description } = req.body;
 
-// Upload
-app.post('/upload', upload.single('photo'), (req, res) => {
-  if (!req.file) return res.status(400).send('No file uploaded!');
-  const { name, description } = req.body;
+    const fileName = Date.now() + path.extname(req.file.originalname);
+    const file = bucket.file(fileName);
 
-  let meta = [];
-  if (fs.existsSync(metaFile)) meta = JSON.parse(fs.readFileSync(metaFile));
+    await file.save(req.file.buffer, { contentType: req.file.mimetype });
+    const [url] = await file.getSignedUrl({ action: 'read', expires: '03-01-2500' });
 
-  meta.push({
-    file: req.file.filename,
-    name: name || 'No Name',
-    description: description || 'No Description'
-  });
+    await db.collection('photos').add({
+      name: name || 'No Name',
+      description: description || 'No Description',
+      fileName,
+      url,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
 
-  fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
-  res.json({ success: true, filePath: '/uploads/' + req.file.filename });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Upload failed!');
+  }
 });
 
-// Return gallery
-app.get('/uploads/', (req, res) => {
-  let meta = [];
-  if (fs.existsSync(metaFile)) meta = JSON.parse(fs.readFileSync(metaFile));
-  res.json(meta);
+// Fetch gallery
+app.get('/uploads', async (req, res) => {
+  const snapshot = await db.collection('photos').orderBy('createdAt', 'desc').get();
+  const photos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  res.json(photos);
 });
 
 // Delete photo
-app.delete('/uploads/:file', (req, res) => {
-  const fileName = req.params.file;
-  let meta = [];
-  if (fs.existsSync(metaFile)) meta = JSON.parse(fs.readFileSync(metaFile));
+app.delete('/uploads/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const docRef = db.collection('photos').doc(id);
+    const doc = await docRef.get();
+    if (!doc.exists) return res.status(404).send('Photo not found');
 
-  const index = meta.findIndex(m => m.file === fileName);
-  if (index === -1) return res.status(404).send('File not found');
+    const { fileName } = doc.data();
+    await bucket.file(fileName).delete();
+    await docRef.delete();
 
-  // Remove file
-  const filePath = path.join(uploadDir, fileName);
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-
-  // Remove metadata
-  meta.splice(index, 1);
-  fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
-
-  res.json({ success: true });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Delete failed!');
+  }
 });
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
