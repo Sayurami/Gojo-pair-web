@@ -3,12 +3,10 @@ const multer = require('multer');
 const { v2: cloudinary } = require('cloudinary');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const path = require('path');
-
-// Import settings
 const settings = require('./settings');
 
 const app = express();
-const PORT = settings.PORT || 3000;
+const PORT = settings.PORT;
 
 // Cloudinary config
 cloudinary.config({
@@ -27,7 +25,7 @@ const storage = new CloudinaryStorage({
 });
 const upload = multer({ storage });
 
-// Serve HTML
+// Serve HTML page
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
@@ -38,4 +36,4 @@ app.post('/upload', upload.single('photo'), (req, res) => {
   res.send(`File uploaded successfully! <br><img src="${req.file.path}" width="300">`);
 });
 
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
