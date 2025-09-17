@@ -3,17 +3,14 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const Mega = require('megajs');
+require('dotenv').config();
 const settings = require('./settings');
 
 const app = express();
-const PORT = process.env.PORT || settings.PORT;
-
-// Ensure uploads folder exists
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+const PORT = settings.PORT || 3000;
 
 // Multer temporary storage
-const upload = multer({ dest: uploadDir });
+const upload = multer({ dest: 'uploads/' });
 
 // Serve HTML page
 app.get('/', (req, res) => {
@@ -25,10 +22,8 @@ app.post('/upload', upload.single('photo'), async (req, res) => {
   if (!req.file) return res.send('No file uploaded!');
 
   try {
-    const storage = Mega({
-      email: settings.MEGA_EMAIL,
-      password: settings.MEGA_PASSWORD
-    });
+    // Mega login
+    const storage = Mega({ email: settings.MEGA_EMAIL, password: settings.MEGA_PASSWORD });
 
     storage.on('ready', () => {
       const file = storage.upload({
@@ -39,9 +34,9 @@ app.post('/upload', upload.single('photo'), async (req, res) => {
       const fileStream = fs.createReadStream(req.file.path);
       fileStream.pipe(file);
 
-      file.on('ready', () => {
+      file.on('complete', () => {
         fs.unlinkSync(req.file.path); // delete temp file
-        res.send(`File uploaded successfully! <br>Mega Link: <a href="${file.link()}" target="_blank">${file.link()}</a>`);
+        res.send(`File uploaded successfully! <br>Mega Link: <a href="${file.link}" target="_blank">${file.link}</a>`);
       });
 
       file.on('error', (err) => {
