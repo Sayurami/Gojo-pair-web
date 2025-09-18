@@ -9,9 +9,9 @@ const bcrypt = require('bcryptjs');
 const { google } = require('googleapis');
 
 const app = express();
-const PORT = 3000; // Hardcoded port
+const PORT = 3000; // Env-free version
 
-// 🔑 Admin credentials (hardcoded)
+// 🔑 Admin credentials
 const JWT_SECRET = 'Sayura2008***7111s';
 const ADMIN_USERNAME = 'sayura';
 const ADMIN_PASSWORD_HASH = bcrypt.hashSync('Sayura2008***7', 10);
@@ -65,16 +65,15 @@ app.get('/uploads/', (req, res) => {
   res.json(meta);
 });
 
-// 🔒 Google Drive config (hardcoded)
+// 🔒 Google Drive config
 const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
-const KEYFILE = path.join(__dirname, 'service-account.json'); // service-account JSON in root
-const GDRIVE_FOLDER_ID = '1hAve0c3_UjrJ7PEc3dDt4COUfsihfzmq'; // hardcoded folder ID
+const KEYFILE = path.join(__dirname, 'service-account.json'); // Your service account JSON
+const FOLDER_ID = 'YOUR_DRIVE_FOLDER_ID'; // Change this
 
 const auth = new google.auth.GoogleAuth({
   keyFile: KEYFILE,
   scopes: SCOPES,
 });
-
 const drive = google.drive({ version: 'v3', auth });
 
 // 🔒 Upload route (Admin)
@@ -85,7 +84,7 @@ app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
   let meta = [];
   if (fs.existsSync(metaFile)) meta = JSON.parse(fs.readFileSync(metaFile));
 
-  // add to local meta
+  // Add to local meta
   const fileMeta = {
     file: req.file.filename,
     name: name || 'No Name',
@@ -94,12 +93,12 @@ app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
   meta.push(fileMeta);
   fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
 
-  // upload to Google Drive
+  // Upload to Google Drive
   try {
     const gfile = await drive.files.create({
       requestBody: {
         name: req.file.filename,
-        parents: [GDRIVE_FOLDER_ID],
+        parents: [FOLDER_ID],
       },
       media: {
         mimeType: req.file.mimetype,
