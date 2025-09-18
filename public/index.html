@@ -2,34 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>File Upload + Mega Auto</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Upload</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 30px; }
-    input, button { margin: 5px 0; padding: 8px; }
-    .gallery img { max-width: 150px; margin: 5px; }
-    .gallery div { display: inline-block; text-align: center; margin: 10px; }
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    input, button { margin: 10px 0; padding: 8px; width: 100%; max-width: 300px; }
+    .hidden { display: none; }
+    .success { color: green; }
+    .error { color: red; }
   </style>
 </head>
 <body>
-  <h1>Admin Login</h1>
+  <h2>Admin Login</h2>
   <div id="loginDiv">
-    <input type="text" id="username" placeholder="Username"><br>
-    <input type="password" id="password" placeholder="Password"><br>
+    <input type="text" id="username" placeholder="Username">
+    <input type="password" id="password" placeholder="Password">
     <button onclick="login()">Login</button>
-    <p id="loginMsg" style="color:red"></p>
+    <p id="loginMsg" class="error"></p>
   </div>
 
-  <div id="uploadDiv" style="display:none;">
+  <div id="uploadDiv" class="hidden">
     <h2>Upload File</h2>
-    <input type="file" id="file"><br>
-    <input type="text" id="name" placeholder="File Name"><br>
-    <input type="text" id="description" placeholder="Description"><br>
+    <input type="text" id="fileName" placeholder="File Name">
+    <input type="text" id="fileDesc" placeholder="File Description">
+    <input type="file" id="fileInput">
     <button onclick="uploadFile()">Upload</button>
-    <p id="uploadMsg" style="color:green"></p>
+    <p id="uploadMsg"></p>
   </div>
-
-  <h2>Gallery</h2>
-  <div class="gallery" id="gallery"></div>
 
   <script>
     let token = '';
@@ -37,71 +36,67 @@
     async function login() {
       const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
+      const msg = document.getElementById('loginMsg');
 
-      const res = await fetch('/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-
-      const data = await res.json();
-      if (data.token) {
-        token = data.token;
-        document.getElementById('loginDiv').style.display = 'none';
-        document.getElementById('uploadDiv').style.display = 'block';
-        document.getElementById('loginMsg').innerText = '';
-        loadGallery();
-      } else {
-        document.getElementById('loginMsg').innerText = data.error || 'Login failed';
+      msg.textContent = '';
+      try {
+        const res = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          token = data.token;
+          document.getElementById('loginDiv').classList.add('hidden');
+          document.getElementById('uploadDiv').classList.remove('hidden');
+        } else {
+          msg.textContent = data.error || 'Login failed';
+        }
+      } catch (err) {
+        msg.textContent = 'Error connecting to server';
       }
     }
 
     async function uploadFile() {
-      const file = document.getElementById('file').files[0];
-      const name = document.getElementById('name').value;
-      const description = document.getElementById('description').value;
+      const fileInput = document.getElementById('fileInput');
+      const fileName = document.getElementById('fileName').value;
+      const fileDesc = document.getElementById('fileDesc').value;
+      const msg = document.getElementById('uploadMsg');
 
-      if (!file) return alert('Select a file!');
+      if (!fileInput.files.length) { 
+        msg.textContent = 'Select a file first'; 
+        msg.className = 'error';
+        return; 
+      }
 
       const formData = new FormData();
-      formData.append('photo', file);
-      formData.append('name', name);
-      formData.append('description', description);
+      formData.append('photo', fileInput.files[0]);
+      formData.append('name', fileName);
+      formData.append('description', fileDesc);
 
-      const res = await fetch('/upload', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + token },
-        body: formData
-      });
+      msg.textContent = 'Uploading...';
+      msg.className = '';
 
-      const data = await res.json();
-      if (data.success) {
-        document.getElementById('uploadMsg').innerText = 'Upload successful!';
-        loadGallery();
-      } else {
-        document.getElementById('uploadMsg').innerText = data.error || 'Upload failed';
+      try {
+        const res = await fetch('/upload', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token },
+          body: formData
+        });
+        const data = await res.json();
+        if (res.ok) {
+          msg.textContent = 'Uploaded! Mega Link: ' + (data.megaLink || 'Processing...');
+          msg.className = 'success';
+        } else {
+          msg.textContent = data.error || 'Upload failed';
+          msg.className = 'error';
+        }
+      } catch (err) {
+        msg.textContent = 'Error connecting to server';
+        msg.className = 'error';
       }
     }
-
-    async function loadGallery() {
-      const res = await fetch('/uploads/');
-      const data = await res.json();
-      const gallery = document.getElementById('gallery');
-      gallery.innerHTML = '';
-
-      data.forEach(item => {
-        const div = document.createElement('div');
-        div.innerHTML = `
-          <img src="/uploads/${item.file}" alt="${item.name}"><br>
-          <b>${item.name}</b><br>
-          ${item.description}<br>
-          Mega: <a href="${item.megaLink}" target="_blank">Link</a>
-        `;
-        gallery.appendChild(div);
-      });
-    }
-
-    loadGallery();
   </script>
 </body>
 </html>
