@@ -7,15 +7,26 @@ const { uploadToMega } = require("./mega");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Serve public folder
-app.use(express.static(path.join(__dirname, "public")));
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-// Multer temp storage
-const uploadDir = path.join(__dirname, "public", "uploads");
+// Public folder
+const publicDir = path.join(__dirname, "public");
+const uploadDir = path.join(publicDir, "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+app.use(express.static(publicDir));
+app.get("/", (req, res) => res.sendFile(path.join(publicDir, "index.html")));
+
+// Meta file
+const metaFile = path.join(uploadDir, "meta.json");
+function readMeta() {
+  if (!fs.existsSync(metaFile)) return [];
+  try { return JSON.parse(fs.readFileSync(metaFile, "utf-8")); }
+  catch { return []; }
+}
+function writeMeta(data) {
+  fs.writeFileSync(metaFile, JSON.stringify(data, null, 2));
+}
+
+// Multer
 const upload = multer({ dest: uploadDir });
 
 // Upload route
@@ -31,20 +42,34 @@ app.post("/upload", upload.single("file"), async (req, res) => {
     console.error("Mega upload failed:", err);
   }
 
-  res.json({
-    success: true,
-    file: req.file.filename,
-    localPath: "/uploads/" + req.file.filename,
-    megaLink
-  });
+  // Save meta
+  const meta = readMeta();
+  meta.push({ filename: req.file.filename, megaLink });
+  writeMeta(meta);
+
+  res.json({ success: true, localPath: "/uploads/" + req.file.filename, megaLink });
 });
 
-// List uploaded files (return file names)
+// List files
 app.get("/uploads", (req, res) => {
-  fs.readdir(uploadDir, (err, files) => {
-    if (err) return res.status(500).json({ error: "Failed to list uploads" });
-    res.json(files);
-  });
+  const meta = readMeta();
+  res.json(meta);
+});
+
+// Delete route
+app.delete("/uploads/:filename", (req, res) => {
+  const filename = req.params.filename;
+  const meta = readMeta();
+  const index = meta.findIndex(f => f.filename === filename);
+  if (index === -1) return res.status(404).json({ error: "File not found" });
+
+  // Optional: delete local file
+  const localPath = path.join(uploadDir, filename);
+  if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
+
+  meta.splice(index, 1);
+  writeMeta(meta);
+  res.json({ success: true });
 });
 
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
