@@ -3,182 +3,111 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Photo Gallery & Upload</title>
+  <title>Gojo Gallery</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f0f0f0;
-      padding: 20px;
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-    #uploadForm {
-      display: flex;
-      flex-direction: column;
-      max-width: 400px;
-      margin: 0 auto 30px auto;
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-    }
-    #uploadForm input, #uploadForm textarea, #uploadForm button {
-      margin-bottom: 10px;
-      padding: 8px;
-      font-size: 14px;
-    }
-    #gallery {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      justify-content: center;
-    }
-    .photo-card {
-      background: white;
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-      padding: 10px;
-      text-align: center;
-      width: 300px;
-    }
-    .photo-card img {
-      width: 100%;
-      height: 200px;
-      object-fit: cover;
-      border-radius: 10px;
-    }
-    .photo-card h3 {
-      margin: 10px 0 5px 0;
-    }
-    .photo-card p {
-      font-size: 14px;
-      color: #555;
-      margin-bottom: 10px;
-    }
-    .photo-card a {
-      display: inline-block;
-      text-decoration: none;
-      color: white;
-      background: #0077ff;
-      padding: 5px 10px;
-      border-radius: 5px;
-    }
-    .photo-card a:hover {
-      background: #005fcc;
-    }
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+    h1 { text-align: center; }
+    .login, .upload, .gallery { max-width: 600px; margin: 20px auto; padding: 15px; background: #fff; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.2);}
+    input, button, textarea { width: 100%; padding: 8px; margin: 5px 0; border-radius: 4px; border: 1px solid #ccc; }
+    .gallery-item { display: inline-block; margin: 10px; text-align: center; vertical-align: top; }
+    .gallery-item img { width: 150px; height: auto; border-radius: 4px; display: block; }
+    a.mega-link { display: block; margin-top: 5px; font-size: 12px; color: blue; text-decoration: underline; }
   </style>
 </head>
 <body>
-  <h1>Photo Gallery & Upload</h1>
 
-  <!-- Admin Upload Form -->
-  <form id="uploadForm">
-    <input type="text" id="username" placeholder="Admin Username" required>
-    <input type="password" id="password" placeholder="Admin Password" required>
-    <input type="file" id="photo" accept="image/*" required>
-    <input type="text" id="name" placeholder="Photo Name">
-    <textarea id="description" placeholder="Photo Description"></textarea>
-    <button type="submit">Upload Photo</button>
-  </form>
+<h1>Gojo Gallery</h1>
 
-  <!-- Gallery -->
-  <div id="gallery"></div>
+<div class="login">
+  <h2>Admin Login</h2>
+  <input type="text" id="username" placeholder="Username">
+  <input type="password" id="password" placeholder="Password">
+  <button onclick="login()">Login</button>
+</div>
 
-  <script>
-    let token = null;
+<div class="upload" style="display:none;">
+  <h2>Upload Photo</h2>
+  <input type="text" id="photoName" placeholder="Photo Name">
+  <textarea id="photoDesc" placeholder="Description"></textarea>
+  <input type="file" id="photoFile">
+  <button onclick="uploadPhoto()">Upload</button>
+</div>
 
-    async function loadGallery() {
-      try {
-        const res = await fetch('/uploads');
-        const photos = await res.json();
-        const gallery = document.getElementById('gallery');
-        gallery.innerHTML = '';
+<div class="gallery">
+  <h2>Gallery</h2>
+  <div id="galleryItems"></div>
+</div>
 
-        photos.forEach(photo => {
-          const card = document.createElement('div');
-          card.className = 'photo-card';
+<script>
+let token = '';
 
-          const img = document.createElement('img');
-          img.src = '/uploads/' + photo.file;
-          img.alt = photo.name;
-          card.appendChild(img);
+// ===== Admin Login =====
+async function login() {
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+  const res = await fetch('/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+  const data = await res.json();
+  if (data.token) {
+    token = data.token;
+    alert('Login successful ✅');
+    document.querySelector('.upload').style.display = 'block';
+  } else {
+    alert('Login failed ❌');
+  }
+}
 
-          const title = document.createElement('h3');
-          title.textContent = photo.name;
-          card.appendChild(title);
+// ===== Upload Photo =====
+async function uploadPhoto() {
+  const file = document.getElementById('photoFile').files[0];
+  const name = document.getElementById('photoName').value;
+  const description = document.getElementById('photoDesc').value;
+  if (!file) { alert('Select a photo!'); return; }
 
-          const desc = document.createElement('p');
-          desc.textContent = photo.description;
-          card.appendChild(desc);
+  const formData = new FormData();
+  formData.append('photo', file);
+  formData.append('name', name);
+  formData.append('description', description);
 
-          if(photo.megaLink){
-            const link = document.createElement('a');
-            link.href = photo.megaLink;
-            link.textContent = 'Download from MEGA';
-            link.target = '_blank';
-            card.appendChild(link);
-          }
+  const res = await fetch('/upload', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token },
+    body: formData
+  });
+  const data = await res.json();
+  if (data.success) {
+    alert('Photo uploaded ✅');
+    loadGallery();
+  } else {
+    alert('Upload failed ❌');
+  }
+}
 
-          gallery.appendChild(card);
-        });
+// ===== Load Gallery =====
+async function loadGallery() {
+  const res = await fetch('/uploads');
+  const photos = await res.json();
+  const gallery = document.getElementById('galleryItems');
+  gallery.innerHTML = '';
+  photos.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'gallery-item';
+    div.innerHTML = `
+      <img src="/uploads/${p.file}" alt="${p.name}">
+      <strong>${p.name}</strong>
+      <p>${p.description}</p>
+      ${p.megaLink ? `<a class="mega-link" href="${p.megaLink}" target="_blank">Download from MEGA</a>` : ''}
+    `;
+    gallery.appendChild(div);
+  });
+}
 
-      } catch(err) {
-        console.error('Error loading gallery:', err);
-      }
-    }
+// Initial load
+loadGallery();
+</script>
 
-    // Upload Form Handling
-    document.getElementById('uploadForm').addEventListener('submit', async e => {
-      e.preventDefault();
-
-      const username = document.getElementById('username').value;
-      const password = document.getElementById('password').value;
-      const photo = document.getElementById('photo').files[0];
-      const name = document.getElementById('name').value;
-      const description = document.getElementById('description').value;
-
-      if(!photo) return alert('Select a photo');
-
-      try {
-        // Login
-        const loginRes = await fetch('/login', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ username, password })
-        });
-        const loginData = await loginRes.json();
-        if(!loginData.token) return alert('Invalid admin credentials');
-
-        token = loginData.token;
-
-        // Upload
-        const formData = new FormData();
-        formData.append('photo', photo);
-        formData.append('name', name);
-        formData.append('description', description);
-
-        const uploadRes = await fetch('/upload', {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + token },
-          body: formData
-        });
-        const uploadData = await uploadRes.json();
-        if(uploadData.success){
-          alert('Photo uploaded successfully!');
-          loadGallery(); // refresh gallery
-        } else {
-          alert('Upload failed');
-        }
-
-      } catch(err) {
-        console.error(err);
-        alert('Error uploading photo');
-      }
-    });
-
-    loadGallery(); // initial load
-  </script>
 </body>
 </html>
