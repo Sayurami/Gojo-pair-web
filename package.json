@@ -1,7 +1,7 @@
 {
   "name": "gojo-pair-web",
-  "version": "1.0.1",
-  "description": "Gojo MD style photo upload web app with Mega & JWT auth",
+  "version": "1.0.2",
+  "description": "Gojo MD style photo upload web app with Mega, JWT auth & Google Drive backup",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -16,6 +16,7 @@
     "megajs": "^1.2.0",
     "dotenv": "^16.3.1",
     "jsonwebtoken": "^9.0.0",
-    "bcryptjs": "^2.4.3"
+    "bcryptjs": "^2.4.3",
+    "googleapis": "^118.0.0"
   }
 }
