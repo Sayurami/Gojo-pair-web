@@ -6,8 +6,8 @@
 <title>Gojo Pair Web</title>
 <style>
   body { font-family: Arial; text-align:center; margin:30px; }
-  img { max-width:200px; margin:10px; border:1px solid #ccc; }
-  button { display:block; margin-top:5px; }
+  img { max-width:200px; margin:10px; border:1px solid #ccc; display:block; }
+  button { margin-top:5px; padding:5px 10px; }
   div.item { display:inline-block; text-align:center; margin:10px; }
 </style>
 </head>
@@ -26,6 +26,7 @@
 const form = document.getElementById("uploadForm");
 const container = document.getElementById("imageContainer");
 
+// Load images
 async function loadImages() {
   const res = await fetch("/uploads");
   const files = await res.json();
@@ -35,7 +36,13 @@ async function loadImages() {
     div.className = "item";
 
     const img = document.createElement("img");
-    img.src = f.megaLink || "/uploads/" + f.filename; // Mega link preferred
+    img.src = f.megaLink || ("/uploads/" + f.filename); // Mega first, fallback local
+    img.alt = f.originalName || f.filename;
+
+    const link = document.createElement("a");
+    link.href = f.megaLink || ("/uploads/" + f.filename);
+    link.target = "_blank";
+    link.textContent = "Open";
 
     const btn = document.createElement("button");
     btn.textContent = "Delete";
@@ -45,11 +52,13 @@ async function loadImages() {
     };
 
     div.appendChild(img);
+    div.appendChild(link);
     div.appendChild(btn);
     container.appendChild(div);
   });
 }
 
+// Upload form
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const fileInput = form.querySelector("input[type=file]");
@@ -58,7 +67,8 @@ form.addEventListener("submit", async (e) => {
 
   const res = await fetch("/upload", { method: "POST", body: formData });
   const data = await res.json();
-  alert(data.megaLink ? `Mega link: ${data.megaLink}` : "Uploaded locally");
+  alert(data.megaLink ? `Uploaded to MEGA: ${data.megaLink}` : "Uploaded locally");
+
   fileInput.value = "";
   loadImages();
 });
