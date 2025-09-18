@@ -40,7 +40,6 @@ function generateToken(user) {
 function verifyToken(req, res, next) {
   const token = req.headers['authorization'];
   if (!token) return res.status(403).json({ error: 'No token provided' });
-
   jwt.verify(token.replace('Bearer ', ''), JWT_SECRET, (err, decoded) => {
     if (err) return res.status(401).json({ error: 'Unauthorized' });
     req.user = decoded;
@@ -67,39 +66,35 @@ app.get('/uploads/', (req, res) => {
 
 // 🔒 Google Drive config
 const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
-const KEYFILE = path.join(__dirname, 'service-account.json'); // your service account JSON
-
+const KEYFILE = path.join(__dirname, 'service-account.json'); // service account JSON file
 const auth = new google.auth.GoogleAuth({
   keyFile: KEYFILE,
   scopes: SCOPES,
 });
-
 const drive = google.drive({ version: 'v3', auth });
 
 // 🔒 Upload route (Admin)
 app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
   if (!req.file) return res.status(400).send('No file uploaded!');
-  const { name, description, link } = req.body;
+  const { name, description } = req.body;
 
   let meta = [];
   if (fs.existsSync(metaFile)) meta = JSON.parse(fs.readFileSync(metaFile));
 
-  // add to local meta
   const fileMeta = {
     file: req.file.filename,
     name: name || 'No Name',
     description: description || 'No Description',
-    link: link || ''
   };
   meta.push(fileMeta);
   fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
 
-  // upload to Google Drive
+  // Upload to Google Drive
   try {
     const gfile = await drive.files.create({
       requestBody: {
         name: req.file.filename,
-        parents: ['1hAve0c3_UjrJ7PEc3dDt4COUfsihfzmq'], // your folder ID
+        parents: ['1hAve0c3_UjrJ7PEc3dDt4COUfsihfzmq'], // your Drive folder ID
       },
       media: {
         mimeType: req.file.mimetype,
@@ -130,21 +125,6 @@ app.delete('/uploads/:file', verifyToken, (req, res) => {
   fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
 
   res.json({ success: true });
-});
-
-// 🌍 Public download + zoom
-app.get('/download/:file', (req, res) => {
-  const fileName = req.params.file;
-  const filePath = path.join(uploadDir, fileName);
-  if (!fs.existsSync(filePath)) return res.status(404).send('File not found');
-  res.download(filePath);
-});
-
-app.get('/zoom/:file', (req, res) => {
-  const fileName = req.params.file;
-  const filePath = path.join(uploadDir, fileName);
-  if (!fs.existsSync(filePath)) return res.status(404).send('File not found');
-  res.sendFile(filePath);
 });
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
