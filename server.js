@@ -6,6 +6,9 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const Mega = require('megajs');
 
+// require mega credentials
+const { email: MEGA_EMAIL, password: MEGA_PASSWORD } = require('./mega');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -13,9 +16,6 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'Sayura2008***7111s';
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'sayura';
 const ADMIN_PASSWORD_HASH = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'Sayura2008***7', 10);
-
-// Mega account (set env variables or require from mega.js)
-const { MEGA_EMAIL, MEGA_PASSWORD } = require('./mega'); // mega.js exports email/password
 
 // 📂 Upload path
 const uploadDir = path.join(__dirname, 'public', 'uploads');
@@ -51,7 +51,7 @@ function verifyToken(req, res, next) {
   });
 }
 
-// Helper: safely read meta.json
+// Helper: read meta.json safely
 function readMeta() {
   try {
     if (!fs.existsSync(metaFile)) return [];
@@ -64,7 +64,7 @@ function readMeta() {
   }
 }
 
-// Helper: safely write meta.json
+// Helper: write meta.json safely
 function writeMeta(meta) {
   try {
     fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
@@ -73,7 +73,7 @@ function writeMeta(meta) {
   }
 }
 
-// 🔹 Mega upload function
+// 🔹 Mega background upload
 async function uploadToMega(filePath, fileName) {
   return new Promise((resolve, reject) => {
     const storage = Mega({ email: MEGA_EMAIL, password: MEGA_PASSWORD }, (err, account) => {
@@ -101,8 +101,8 @@ app.post('/login', (req, res) => {
   res.json({ token });
 });
 
-// 🔒 Admin upload (Local + background Mega)
-app.post('/upload', verifyToken, upload.single('photo'), (req, res) => {
+// 🔒 Admin upload (Local + Mega backup)
+app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded!' });
 
   const { name, description } = req.body;
@@ -111,28 +111,19 @@ app.post('/upload', verifyToken, upload.single('photo'), (req, res) => {
   const newMeta = {
     file: req.file.filename,
     name: name || 'No Name',
-    description: description || 'No Description',
-    megaLink: null
+    description: description || 'No Description'
   };
 
-  // Save locally first
   meta.push(newMeta);
   writeMeta(meta);
 
-  // Respond immediately to avoid Heroku timeout
+  // Return response immediately (local file path)
   res.json({ success: true, filePath: '/uploads/' + req.file.filename });
 
   // Background Mega upload
-  (async () => {
-    try {
-      const megaUrl = await uploadToMega(path.join(uploadDir, req.file.filename), req.file.filename);
-      newMeta.megaLink = megaUrl;
-      writeMeta(meta); // update meta.json with mega link
-      console.log(`Uploaded ${req.file.filename} to Mega: ${megaUrl}`);
-    } catch (err) {
-      console.error('Mega upload failed:', err);
-    }
-  })();
+  uploadToMega(path.join(uploadDir, req.file.filename), req.file.filename)
+    .then(link => console.log('Mega backup upload success:', link))
+    .catch(err => console.error('Mega backup upload failed:', err));
 });
 
 // 🌍 Public gallery
