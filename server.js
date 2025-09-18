@@ -5,7 +5,6 @@ const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const Mega = require('megajs');
-const { email: MEGA_EMAIL, password: MEGA_PASSWORD } = require('./mega'); // 🔹 import mega credentials
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,6 +13,9 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'Sayura2008***7111s';
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'sayura';
 const ADMIN_PASSWORD_HASH = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'Sayura2008***7', 10);
+
+// Mega account (set env variables or require from mega.js)
+const { MEGA_EMAIL, MEGA_PASSWORD } = require('./mega'); // mega.js exports email/password
 
 // 📂 Upload path
 const uploadDir = path.join(__dirname, 'public', 'uploads');
@@ -99,8 +101,8 @@ app.post('/login', (req, res) => {
   res.json({ token });
 });
 
-// 🔒 Admin upload (Local + Auto Mega)
-app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
+// 🔒 Admin upload (Local + background Mega)
+app.post('/upload', verifyToken, upload.single('photo'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded!' });
 
   const { name, description } = req.body;
@@ -113,19 +115,24 @@ app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
     megaLink: null
   };
 
-  // ✅ Local upload + Mega auto upload
-  try {
-    const megaUrl = await uploadToMega(path.join(uploadDir, req.file.filename), req.file.filename);
-    newMeta.megaLink = megaUrl;
-  } catch (err) {
-    console.error('Mega upload failed:', err);
-    return res.status(500).json({ error: 'Mega upload failed' });
-  }
-
+  // Save locally first
   meta.push(newMeta);
   writeMeta(meta);
 
-  res.json({ success: true, filePath: '/uploads/' + req.file.filename, megaLink: newMeta.megaLink });
+  // Respond immediately to avoid Heroku timeout
+  res.json({ success: true, filePath: '/uploads/' + req.file.filename });
+
+  // Background Mega upload
+  (async () => {
+    try {
+      const megaUrl = await uploadToMega(path.join(uploadDir, req.file.filename), req.file.filename);
+      newMeta.megaLink = megaUrl;
+      writeMeta(meta); // update meta.json with mega link
+      console.log(`Uploaded ${req.file.filename} to Mega: ${megaUrl}`);
+    } catch (err) {
+      console.error('Mega upload failed:', err);
+    }
+  })();
 });
 
 // 🌍 Public gallery
