@@ -5,7 +5,7 @@ const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { Storage } = require('megajs');
-const settings = require('./setting');
+const settings = require('./settings');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
