@@ -6,16 +6,17 @@ const path = require('path');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { google } = require('googleapis');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3000; // Hardcoded port
 
-// 🔑 Admin credentials
-const JWT_SECRET = process.env.JWT_SECRET || 'Sayura2008***7111s';
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'sayura';
-const ADMIN_PASSWORD_HASH = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'Sayura2008***7', 10);
+// 🔑 Admin credentials (hardcoded)
+const JWT_SECRET = 'Sayura2008***7111s';
+const ADMIN_USERNAME = 'sayura';
+const ADMIN_PASSWORD_HASH = bcrypt.hashSync('Sayura2008***7', 10);
 
-// 📂 Upload path
+// 📂 Local storage path
 const uploadDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
@@ -31,7 +32,7 @@ app.use(express.urlencoded({ extended: true }));
 
 const metaFile = path.join(uploadDir, 'meta.json');
 
-// 🔑 JWT helper
+// 🔑 JWT helpers
 function generateToken(user) {
   return jwt.sign({ username: user.username }, JWT_SECRET, { expiresIn: '2h' });
 }
@@ -47,7 +48,7 @@ function verifyToken(req, res, next) {
   });
 }
 
-// 🟢 Login
+// 🟢 Login route
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
   if (username !== ADMIN_USERNAME || !bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) {
@@ -57,24 +58,6 @@ app.post('/login', (req, res) => {
   res.json({ token });
 });
 
-// 🔒 Upload (Admin)
-app.post('/upload', verifyToken, upload.single('photo'), (req, res) => {
-  if (!req.file) return res.status(400).send('No file uploaded!');
-  const { name, description } = req.body;
-
-  let meta = [];
-  if (fs.existsSync(metaFile)) meta = JSON.parse(fs.readFileSync(metaFile));
-
-  meta.push({
-    file: req.file.filename,
-    name: name || 'No Name',
-    description: description || 'No Description'
-  });
-
-  fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
-  res.json({ success: true, filePath: '/uploads/' + req.file.filename });
-});
-
 // 🌍 Public gallery
 app.get('/uploads/', (req, res) => {
   let meta = [];
@@ -82,7 +65,56 @@ app.get('/uploads/', (req, res) => {
   res.json(meta);
 });
 
-// 🔒 Delete (Admin)
+// 🔒 Google Drive config (hardcoded)
+const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
+const KEYFILE = path.join(__dirname, 'service-account.json'); // service-account JSON in root
+const GDRIVE_FOLDER_ID = '1hAve0c3_UjrJ7PEc3dDt4COUfsihfzmq'; // hardcoded folder ID
+
+const auth = new google.auth.GoogleAuth({
+  keyFile: KEYFILE,
+  scopes: SCOPES,
+});
+
+const drive = google.drive({ version: 'v3', auth });
+
+// 🔒 Upload route (Admin)
+app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
+  if (!req.file) return res.status(400).send('No file uploaded!');
+  const { name, description } = req.body;
+
+  let meta = [];
+  if (fs.existsSync(metaFile)) meta = JSON.parse(fs.readFileSync(metaFile));
+
+  // add to local meta
+  const fileMeta = {
+    file: req.file.filename,
+    name: name || 'No Name',
+    description: description || 'No Description'
+  };
+  meta.push(fileMeta);
+  fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
+
+  // upload to Google Drive
+  try {
+    const gfile = await drive.files.create({
+      requestBody: {
+        name: req.file.filename,
+        parents: [GDRIVE_FOLDER_ID],
+      },
+      media: {
+        mimeType: req.file.mimetype,
+        body: fs.createReadStream(path.join(uploadDir, req.file.filename)),
+      },
+    });
+    console.log('Uploaded to Drive:', gfile.data.id);
+  } catch (err) {
+    console.error('Google Drive upload error:', err);
+  }
+
+  res.json({ success: true, filePath: '/uploads/' + req.file.filename });
+});
+
+// 🔒 Delete route (Admin)
 app.delete('/uploads/:file', verifyToken, (req, res) => {
   const fileName = req.params.file;
   let meta = [];
