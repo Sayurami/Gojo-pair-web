@@ -8,24 +8,28 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { google } = require('googleapis');
 
+require('dotenv').config();
+
 const app = express();
-const PORT = 3000; // Env-free version
+const PORT = process.env.PORT || 3000;
 
 // 🔑 Admin credentials
-const JWT_SECRET = 'Sayura2008***7111s';
-const ADMIN_USERNAME = 'sayura';
-const ADMIN_PASSWORD_HASH = bcrypt.hashSync('Sayura2008***7', 10);
+const JWT_SECRET = process.env.JWT_SECRET || 'Sayura2008***7111s';
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'sayura';
+const ADMIN_PASSWORD_HASH = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'Sayura2008***7', 10);
 
 // 📂 Local storage path
 const uploadDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
+// 📦 Multer storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
 });
 const upload = multer({ storage });
 
+// 🌐 Middleware
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -65,15 +69,20 @@ app.get('/uploads/', (req, res) => {
   res.json(meta);
 });
 
+// 🏠 Root route
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // 🔒 Google Drive config
 const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
-const KEYFILE = path.join(__dirname, 'service-account.json'); // Your service account JSON
-const FOLDER_ID = 'YOUR_DRIVE_FOLDER_ID'; // Change this
+const KEYFILE = path.join(__dirname, 'service-account.json'); // Google service account JSON
 
 const auth = new google.auth.GoogleAuth({
   keyFile: KEYFILE,
   scopes: SCOPES,
 });
+
 const drive = google.drive({ version: 'v3', auth });
 
 // 🔒 Upload route (Admin)
@@ -84,7 +93,7 @@ app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
   let meta = [];
   if (fs.existsSync(metaFile)) meta = JSON.parse(fs.readFileSync(metaFile));
 
-  // Add to local meta
+  // add to local meta
   const fileMeta = {
     file: req.file.filename,
     name: name || 'No Name',
@@ -93,12 +102,12 @@ app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
   meta.push(fileMeta);
   fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
 
-  // Upload to Google Drive
+  // upload to Google Drive
   try {
     const gfile = await drive.files.create({
       requestBody: {
         name: req.file.filename,
-        parents: [FOLDER_ID],
+        parents: [process.env.GDRIVE_FOLDER_ID], // folder ID in your Drive
       },
       media: {
         mimeType: req.file.mimetype,
