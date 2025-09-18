@@ -1,24 +1,27 @@
+// server.js
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const Mega = require('megajs'); // npm install megajs
+const Mega = require('megajs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 🔑 Admin config
-const JWT_SECRET = 'Sayura2008***8';
+// 🔑 Config
+const JWT_SECRET = 'Sayura2008***7111s';
 const ADMIN_USERNAME = 'sayura';
-const ADMIN_PASSWORD_HASH = bcrypt.hashSync('Sayura2008***8', 10);
+const ADMIN_PASSWORD_HASH = bcrypt.hashSync('Sayura2008***7', 10);
 
 // 📂 Upload path
 const uploadDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-// Multer storage
+const metaFile = path.join(uploadDir, 'meta.json');
+
+// Multer setup
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
@@ -29,9 +32,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const metaFile = path.join(uploadDir, 'meta.json');
-
-// 🔑 JWT helpers
+// JWT helpers
 function generateToken(user) {
   return jwt.sign({ username: user.username }, JWT_SECRET, { expiresIn: '2h' });
 }
@@ -47,39 +48,33 @@ function verifyToken(req, res, next) {
   });
 }
 
-// Helper: safely read meta.json
+// Meta helpers
 function readMeta() {
   try {
     if (!fs.existsSync(metaFile)) return [];
     const content = fs.readFileSync(metaFile, 'utf-8').trim();
     if (!content) return [];
     return JSON.parse(content);
-  } catch (err) {
-    console.error('Error reading meta.json:', err);
+  } catch {
     return [];
   }
 }
 
-// Helper: safely write meta.json
 function writeMeta(meta) {
-  try {
-    fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
-  } catch (err) {
-    console.error('Error writing meta.json:', err);
-  }
+  try { fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2)); } catch {}
 }
 
-// Mega auto-upload function
-async function uploadToMega(localPath) {
+// Mega async upload
+function uploadToMegaSafe(localPath) {
   try {
     const storage = new Mega.Storage({
-      email: 'nnarutouzumaki25000@gmail.com',  // Mega account email
-      password: 'Sayura2008***8'              // Mega account password
+      email: 'nnarutouzumaki25000@gmail.com',
+      password: 'Sayura2008***8'
     });
 
     storage.on('ready', () => {
       const file = storage.upload({ name: path.basename(localPath) }, fs.createReadStream(localPath));
-      file.on('complete', () => console.log('Uploaded to Mega:', localPath));
+      file.on('complete', () => console.log('Mega uploaded:', localPath));
       file.on('error', (err) => console.error('Mega upload error:', err));
     });
 
@@ -89,7 +84,11 @@ async function uploadToMega(localPath) {
   }
 }
 
-// 🟢 Admin login
+// Routes
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
   if (username !== ADMIN_USERNAME || !bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) {
@@ -99,7 +98,6 @@ app.post('/login', (req, res) => {
   res.json({ token });
 });
 
-// 🔒 Admin upload
 app.post('/upload', verifyToken, upload.single('photo'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded!' });
 
@@ -114,19 +112,14 @@ app.post('/upload', verifyToken, upload.single('photo'), (req, res) => {
 
   writeMeta(meta);
 
-  // Async Mega upload (won't block response)
-  uploadToMega(path.join(uploadDir, req.file.filename));
+  // Async Mega upload
+  setImmediate(() => uploadToMegaSafe(path.join(uploadDir, req.file.filename)));
 
   res.json({ success: true, filePath: '/uploads/' + req.file.filename });
 });
 
-// 🌍 Public gallery
-app.get('/uploads/', (req, res) => {
-  const meta = readMeta();
-  res.json(meta);
-});
+app.get('/uploads', (req, res) => res.json(readMeta()));
 
-// 🔒 Admin delete
 app.delete('/uploads/:file', verifyToken, (req, res) => {
   const fileName = req.params.file;
   const meta = readMeta();
@@ -138,7 +131,6 @@ app.delete('/uploads/:file', verifyToken, (req, res) => {
 
   meta.splice(index, 1);
   writeMeta(meta);
-
   res.json({ success: true });
 });
 
