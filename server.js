@@ -4,10 +4,6 @@ const path = require('path');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const Mega = require('megajs');
-
-// require mega credentials
-const { email: MEGA_EMAIL, password: MEGA_PASSWORD } = require('./mega');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -51,7 +47,7 @@ function verifyToken(req, res, next) {
   });
 }
 
-// Helper: read meta.json safely
+// Helper: safely read meta.json
 function readMeta() {
   try {
     if (!fs.existsSync(metaFile)) return [];
@@ -64,29 +60,13 @@ function readMeta() {
   }
 }
 
-// Helper: write meta.json safely
+// Helper: safely write meta.json
 function writeMeta(meta) {
   try {
     fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
   } catch (err) {
     console.error('Error writing meta.json:', err);
   }
-}
-
-// 🔹 Mega background upload
-async function uploadToMega(filePath, fileName) {
-  return new Promise((resolve, reject) => {
-    const storage = Mega({ email: MEGA_EMAIL, password: MEGA_PASSWORD }, (err, account) => {
-      if (err) return reject(err);
-
-      const fileStream = fs.createReadStream(filePath);
-      const uploadFile = account.upload({ name: fileName }, fileStream);
-
-      uploadFile.complete.then(node => {
-        node.link().then(link => resolve(link)).catch(reject);
-      }).catch(reject);
-    });
-  });
 }
 
 // 🟢 Admin login
@@ -101,29 +81,21 @@ app.post('/login', (req, res) => {
   res.json({ token });
 });
 
-// 🔒 Admin upload (Local + Mega backup)
-app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
+// 🔒 Admin upload
+app.post('/upload', verifyToken, upload.single('photo'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded!' });
 
   const { name, description } = req.body;
   const meta = readMeta();
 
-  const newMeta = {
+  meta.push({
     file: req.file.filename,
     name: name || 'No Name',
     description: description || 'No Description'
-  };
+  });
 
-  meta.push(newMeta);
   writeMeta(meta);
-
-  // Return response immediately (local file path)
   res.json({ success: true, filePath: '/uploads/' + req.file.filename });
-
-  // Background Mega upload
-  uploadToMega(path.join(uploadDir, req.file.filename), req.file.filename)
-    .then(link => console.log('Mega backup upload success:', link))
-    .catch(err => console.error('Mega backup upload failed:', err));
 });
 
 // 🌍 Public gallery
