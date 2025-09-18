@@ -2,48 +2,46 @@ const express = require("express");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const Mega = require("megajs");
-require("dotenv").config();
-const settings = require("./settings");
+const { uploadToMega } = require("./mega"); // Mega upload helper
 
 const app = express();
-const PORT = process.env.PORT || settings.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
-// Multer temporary storage
-const upload = multer({ dest: "uploads/" });
-
-// Serve static HTML (public/index.html)
+// Serve static frontend
 app.use(express.static(path.join(__dirname, "public")));
-
-// Default route (fallback if index.html missing)
 app.get("/", (req, res) => {
-  res.send("🚀 Gojo Pair Web is running on Heroku!");
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// Example upload route
+// Multer temp storage
+const upload = multer({ dest: path.join(__dirname, "public", "uploads") });
+
+// Upload route
 app.post("/upload", upload.single("file"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
   try {
-    if (!req.file) return res.status(400).send("No file uploaded");
+    // Upload to Mega
+    const buffer = fs.readFileSync(req.file.path);
+    const megaLink = await uploadToMega(req.file.originalname, buffer);
 
-    // Mega setup
-    const storage = new Mega.Storage({
-      email: process.env.MEGA_EMAIL,
-      password: process.env.MEGA_PASSWORD,
-    });
+    // Remove temp file
+    fs.unlinkSync(req.file.path);
 
-    storage.on("ready", () => {
-      const stream = fs.createReadStream(req.file.path);
-      storage.upload(req.file.originalname, stream, (err, file) => {
-        if (err) return res.status(500).send("Upload failed");
-        res.send(`✅ File uploaded: ${file.downloadLink}`);
-        fs.unlinkSync(req.file.path); // remove temp file
-      });
-    });
+    res.json({ success: true, megaLink });
   } catch (err) {
-    res.status(500).send("Server Error: " + err.message);
+    console.error(err);
+    res.status(500).json({ error: "Mega upload failed" });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
+// Optional: list uploads
+app.get("/uploads", (req, res) => {
+  fs.readdir(path.join(__dirname, "public", "uploads"), (err, files) => {
+    if (err) return res.status(500).json({ error: "Failed to list uploads" });
+    res.json(files);
+  });
 });
+
+// Start server
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
