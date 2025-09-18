@@ -1,99 +1,43 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Gojo File Upload</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f4; }
-    .container { max-width: 600px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);}
-    input, button { padding: 10px; margin: 5px 0; width: 100%; }
-    .gallery img { max-width: 100px; margin: 5px; }
-    .gallery div { display: inline-block; text-align: center; margin: 5px; }
-  </style>
+<meta charset="UTF-8">
+<title>Admin Upload</title>
 </head>
 <body>
-  <div class="container">
-    <h2>Admin Login</h2>
-    <input type="text" id="username" placeholder="Username">
-    <input type="password" id="password" placeholder="Password">
-    <button onclick="login()">Login</button>
+<h1>Admin Upload</h1>
+<form id="uploadForm" enctype="multipart/form-data">
+  <input type="text" name="name" placeholder="File Name"><br>
+  <input type="text" name="description" placeholder="Description"><br>
+  <input type="file" name="photo"><br>
+  <button type="submit">Upload</button>
+</form>
 
-    <div id="uploadSection" style="display:none;">
-      <h2>Upload File</h2>
-      <input type="text" id="name" placeholder="File Name">
-      <input type="text" id="description" placeholder="Description">
-      <input type="file" id="file">
-      <button onclick="upload()">Upload</button>
-    </div>
-
-    <h2>Gallery</h2>
-    <div class="gallery" id="gallery"></div>
-  </div>
+<h2>Gallery</h2>
+<div id="gallery"></div>
 
 <script>
-let token = '';
+const token = prompt("Enter Admin Token:");
 
-async function login() {
-  const username = document.getElementById('username').value;
-  const password = document.getElementById('password').value;
-
-  const res = await fetch('/login', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({username, password})
-  });
-
-  const data = await res.json();
-  if(data.token){
-    token = data.token;
-    document.getElementById('uploadSection').style.display = 'block';
-    alert('Login successful');
-  } else {
-    alert('Login failed');
-  }
-}
-
-async function upload() {
-  const fileInput = document.getElementById('file');
-  const name = document.getElementById('name').value;
-  const description = document.getElementById('description').value;
-
-  if(!fileInput.files.length) return alert('Select a file');
-
-  const formData = new FormData();
-  formData.append('photo', fileInput.files[0]);
-  formData.append('name', name);
-  formData.append('description', description);
-
-  const res = await fetch('/upload', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + token },
-    body: formData
-  });
-
-  const data = await res.json();
-  if(data.success){
-    alert('Uploaded!');
-    fileInput.value = '';
-    loadGallery();
-  } else {
-    alert('Upload failed');
-  }
-}
+document.getElementById('uploadForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const form = e.target;
+  const data = new FormData(form);
+  const res = await fetch('/upload', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: data });
+  const json = await res.json();
+  alert(JSON.stringify(json));
+  loadGallery();
+});
 
 async function loadGallery() {
   const res = await fetch('/uploads/');
   const files = await res.json();
-
   const gallery = document.getElementById('gallery');
   gallery.innerHTML = '';
-  files.forEach(f=>{
-    const div = document.createElement('div');
-    div.innerHTML = `<img src="/uploads/${f.file}" alt="${f.name}"><br>${f.name}`;
-    gallery.appendChild(div);
+  files.forEach(f => {
+    gallery.innerHTML += `<div><strong>${f.name}</strong>: ${f.description}<br><img src="/uploads/${f.file}" width="150"></div>`;
   });
 }
-
 loadGallery();
 </script>
 </body>
