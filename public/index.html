@@ -1,33 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gojo Pair Web Upload</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gojo Pair Web</title>
+  <style>
+    body { font-family: Arial; text-align:center; margin:30px; }
+    img { max-width: 200px; margin:10px; border:1px solid #ccc; }
+  </style>
 </head>
 <body>
-  <h1>Upload File</h1>
+  <h1>Upload & Display Images</h1>
 
   <form id="uploadForm" enctype="multipart/form-data">
-    <input type="file" name="file" required />
+    <input type="file" name="file" accept="image/*" required>
     <button type="submit">Upload</button>
   </form>
 
-  <h2>Uploaded Files:</h2>
-  <ul id="fileList"></ul>
+  <h2>Uploaded Images:</h2>
+  <div id="imageContainer"></div>
 
   <script>
     const form = document.getElementById("uploadForm");
-    const fileList = document.getElementById("fileList");
+    const container = document.getElementById("imageContainer");
 
-    async function loadFiles() {
+    async function loadImages() {
       const res = await fetch("/uploads");
       const files = await res.json();
-      fileList.innerHTML = "";
+      container.innerHTML = "";
       files.forEach(f => {
-        const li = document.createElement("li");
-        li.innerHTML = `<a href="/uploads/${f}" target="_blank">${f}</a>`;
-        fileList.appendChild(li);
+        const img = document.createElement("img");
+        img.src = "/uploads/" + f;
+        container.appendChild(img);
       });
     }
 
@@ -39,13 +43,13 @@
 
       const res = await fetch("/upload", { method: "POST", body: formData });
       const data = await res.json();
-      alert(data.megaLink ? `Mega: ${data.megaLink}` : "Uploaded locally");
 
+      alert(data.megaLink ? `Mega link: ${data.megaLink}` : "Uploaded locally");
       fileInput.value = "";
-      loadFiles();
+      loadImages();
     });
 
-    loadFiles();
+    loadImages();
   </script>
 </body>
 </html>
