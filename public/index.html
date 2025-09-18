@@ -3,152 +3,115 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gojo File Gallery</title>
+<title>Gojo Upload & Gallery</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 0; padding: 0; background:#f5f5f5; }
-  header { background: #222; color: #fff; padding: 10px; text-align: center; }
-  main { padding: 20px; max-width: 900px; margin: auto; }
-  .login, .upload, .gallery { margin-bottom: 30px; background:#fff; padding:20px; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1);}
-  input, button { padding: 10px; margin:5px 0; width: 100%; }
-  .gallery img { max-width: 150px; margin:5px; cursor:pointer; border-radius:5px; }
-  .file-item { display:inline-block; margin:5px; vertical-align: top; text-align:center; }
-  .zoom { position:fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); display:none; justify-content:center; align-items:center; }
-  .zoom img { max-width:90%; max-height:90%; border-radius:10px; }
-  .delete-btn { background:red; color:#fff; padding:5px 10px; margin-top:5px; cursor:pointer; border:none; border-radius:5px; }
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  .hidden { display: none; }
+  .gallery { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+  .gallery img { width: 150px; height: auto; border: 1px solid #ccc; padding: 5px; }
+  input, button { margin: 5px 0; padding: 8px; width: 100%; max-width: 300px; }
+  .item { border: 1px solid #ddd; padding: 10px; width: 150px; text-align: center; }
 </style>
 </head>
 <body>
-<header>
-  <h1>Gojo File Gallery</h1>
-</header>
-<main>
-  <!-- Login -->
-  <div class="login">
-    <h2>Admin Login</h2>
-    <input type="text" id="username" placeholder="Username">
-    <input type="password" id="password" placeholder="Password">
-    <button onclick="login()">Login</button>
-  </div>
 
-  <!-- Upload (admin only) -->
-  <div class="upload" style="display:none;">
-    <h2>Upload File</h2>
-    <input type="text" id="fileName" placeholder="Name">
-    <input type="text" id="fileDesc" placeholder="Description">
-    <input type="file" id="filePhoto">
-    <button onclick="uploadFile()">Upload</button>
-  </div>
+<h1>Gojo Upload & Gallery</h1>
 
-  <!-- Gallery -->
-  <div class="gallery">
-    <h2>Gallery</h2>
-    <div id="galleryContainer"></div>
-  </div>
-</main>
-
-<!-- Zoom modal -->
-<div class="zoom" id="zoomModal" onclick="this.style.display='none'">
-  <img id="zoomImg" src="">
+<div id="loginDiv">
+  <h2>Admin Login</h2>
+  <input type="text" id="username" placeholder="Username">
+  <input type="password" id="password" placeholder="Password">
+  <button onclick="login()">Login</button>
+  <p id="loginMsg" style="color:red;"></p>
 </div>
+
+<div id="uploadDiv" class="hidden">
+  <h2>Upload File</h2>
+  <input type="text" id="name" placeholder="File Name">
+  <input type="text" id="description" placeholder="Description">
+  <input type="file" id="photo">
+  <button onclick="uploadFile()">Upload</button>
+  <p id="uploadMsg" style="color:green;"></p>
+  <button onclick="logout()">Logout</button>
+</div>
+
+<h2>Gallery</h2>
+<div class="gallery" id="gallery"></div>
 
 <script>
 let token = '';
 
-// Admin login
-function login(){
+async function login() {
   const username = document.getElementById('username').value;
   const password = document.getElementById('password').value;
-  fetch('/login', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({username,password})
-  })
-  .then(res=>res.json())
-  .then(data=>{
-    if(data.token){
-      token = data.token;
-      alert('Login success');
-      document.querySelector('.upload').style.display = 'block';
-    } else alert('Login failed');
+  const res = await fetch('/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
   });
+  const data = await res.json();
+  if(data.token){
+    token = data.token;
+    document.getElementById('loginDiv').classList.add('hidden');
+    document.getElementById('uploadDiv').classList.remove('hidden');
+    document.getElementById('loginMsg').innerText = '';
+  } else {
+    document.getElementById('loginMsg').innerText = data.error || 'Login failed';
+  }
 }
 
-// Upload
-function uploadFile(){
-  const file = document.getElementById('filePhoto').files[0];
-  if(!file){ alert('Select a file'); return; }
+function logout() {
+  token = '';
+  document.getElementById('loginDiv').classList.remove('hidden');
+  document.getElementById('uploadDiv').classList.add('hidden');
+}
+
+async function uploadFile() {
+  const name = document.getElementById('name').value;
+  const description = document.getElementById('description').value;
+  const photo = document.getElementById('photo').files[0];
+  if(!photo) return alert('Select a file');
+
   const formData = new FormData();
-  formData.append('photo', file);
-  formData.append('name', document.getElementById('fileName').value);
-  formData.append('description', document.getElementById('fileDesc').value);
+  formData.append('photo', photo);
+  formData.append('name', name);
+  formData.append('description', description);
 
-  fetch('/upload', {
-    method:'POST',
-    headers:{ 'Authorization':'Bearer '+token },
+  const res = await fetch('/upload', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token },
     body: formData
-  })
-  .then(res=>res.json())
-  .then(data=>{
-    if(data.success){
-      alert('Uploaded');
-      document.getElementById('fileName').value='';
-      document.getElementById('fileDesc').value='';
-      document.getElementById('filePhoto').value='';
-      loadGallery();
-    } else alert('Upload failed');
+  });
+
+  const data = await res.json();
+  if(data.success){
+    document.getElementById('uploadMsg').innerText = 'Upload successful!';
+    loadGallery();
+  } else {
+    document.getElementById('uploadMsg').innerText = 'Upload failed!';
+  }
+}
+
+async function loadGallery() {
+  const res = await fetch('/uploads/');
+  const files = await res.json();
+  const gallery = document.getElementById('gallery');
+  gallery.innerHTML = '';
+  files.forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.innerHTML = `
+      <img src="/uploads/${f.file}" alt="${f.name}">
+      <p><b>${f.name}</b></p>
+      <p>${f.description}</p>
+    `;
+    gallery.appendChild(div);
   });
 }
 
-// Load gallery
-function loadGallery(){
-  fetch('/uploads/')
-  .then(res=>res.json())
-  .then(data=>{
-    const container = document.getElementById('galleryContainer');
-    container.innerHTML='';
-    data.forEach(file=>{
-      const div = document.createElement('div');
-      div.className='file-item';
-      const img = document.createElement('img');
-      img.src='/uploads/'+file.file;
-      img.alt=file.name;
-      img.title=file.description;
-      img.onclick=()=>{ document.getElementById('zoomImg').src=img.src; document.getElementById('zoomModal').style.display='flex'; };
-      div.appendChild(img);
-
-      const name = document.createElement('div'); name.textContent=file.name; div.appendChild(name);
-      const desc = document.createElement('div'); desc.textContent=file.description; div.appendChild(desc);
-
-      // delete button for admin
-      if(token){
-        const del = document.createElement('button');
-        del.textContent='Delete';
-        del.className='delete-btn';
-        del.onclick=()=>deleteFile(file.file);
-        div.appendChild(del);
-      }
-
-      container.appendChild(div);
-    });
-  });
-}
-
-// Delete file
-function deleteFile(file){
-  if(!confirm('Delete this file?')) return;
-  fetch('/uploads/'+file,{
-    method:'DELETE',
-    headers:{ 'Authorization':'Bearer '+token }
-  })
-  .then(res=>res.json())
-  .then(data=>{
-    if(data.success) loadGallery();
-    else alert('Delete failed');
-  });
-}
-
-// Initial load
+// initial load
 loadGallery();
 </script>
+
 </body>
 </html>
