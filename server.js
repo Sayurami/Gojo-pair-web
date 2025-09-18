@@ -9,7 +9,7 @@ const bcrypt = require('bcryptjs');
 const { google } = require('googleapis');
 
 const app = express();
-const PORT = 3000; // fixed port
+const PORT = process.env.PORT || 3000; // Heroku compatible port
 
 // 🔑 Admin credentials
 const JWT_SECRET = 'Sayura2008***7111s';
@@ -64,9 +64,14 @@ app.get('/uploads/', (req, res) => {
   res.json(meta);
 });
 
+// 🏠 Root route (fix H27)
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // 🔒 Google Drive config
 const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
-const KEYFILE = path.join(__dirname, 'service-account.json'); // service account JSON file
+const KEYFILE = path.join(__dirname, 'service-account.json');
 const auth = new google.auth.GoogleAuth({
   keyFile: KEYFILE,
   scopes: SCOPES,
@@ -94,7 +99,7 @@ app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
     const gfile = await drive.files.create({
       requestBody: {
         name: req.file.filename,
-        parents: ['1hAve0c3_UjrJ7PEc3dDt4COUfsihfzmq'], // your Drive folder ID
+        parents: ['1hAve0c3_UjrJ7PEc3dDt4COUfsihfzmq'], // Google Drive folder ID
       },
       media: {
         mimeType: req.file.mimetype,
