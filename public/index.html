@@ -1,113 +1,244 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="si">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gojo Gallery</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MEGA Upload Admin</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
-    h1 { text-align: center; }
-    .login, .upload, .gallery { max-width: 600px; margin: 20px auto; padding: 15px; background: #fff; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.2);}
-    input, button, textarea { width: 100%; padding: 8px; margin: 5px 0; border-radius: 4px; border: 1px solid #ccc; }
-    .gallery-item { display: inline-block; margin: 10px; text-align: center; vertical-align: top; }
-    .gallery-item img { width: 150px; height: auto; border-radius: 4px; display: block; }
-    a.mega-link { display: block; margin-top: 5px; font-size: 12px; color: blue; text-decoration: underline; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial; max-width:900px; margin:24px auto; padding:12px; }
+    header { display:flex; align-items:center; gap:12px; margin-bottom:18px; }
+    h1 { margin:0; font-size:20px; }
+    .card { border:1px solid #e4e4e4; padding:14px; border-radius:8px; margin-bottom:12px; }
+    label { display:block; margin:8px 0 4px; font-size:14px; }
+    input[type="text"], input[type="password"], textarea { width:100%; padding:8px; box-sizing:border-box; border-radius:6px; border:1px solid #d0d0d0; }
+    button { padding:8px 12px; border-radius:6px; border:0; cursor:pointer; }
+    .muted { color:#666; font-size:13px; }
+    .row { display:flex; gap:8px; align-items:center; }
+    .gallery-item { border-top:1px dashed #eee; padding:10px 0; display:flex; justify-content:space-between; gap:12px; align-items:center; }
+    .gallery-left { flex:1; }
+    a.mlink { word-break:break-all; color: #0b63d6; text-decoration:none; }
+    .small { font-size:13px; color:#444; }
   </style>
 </head>
 <body>
+  <header>
+    <h1>MEGA Upload Admin</h1>
+    <div class="muted">(Login → Upload → Manage)</div>
+  </header>
 
-<h1>Gojo Gallery</h1>
+  <!-- Login -->
+  <section class="card" id="loginCard">
+    <h2 style="margin:0 0 8px 0;font-size:16px">Admin Login</h2>
+    <label>Username</label>
+    <input id="username" type="text" value="sayura" />
+    <label>Password</label>
+    <input id="password" type="password" />
+    <div style="margin-top:10px;">
+      <button id="btnLogin">Login</button>
+      <button id="btnLogout" style="display:none; margin-left:8px;">Logout</button>
+      <span id="loginMsg" class="muted" style="margin-left:12px"></span>
+    </div>
+  </section>
 
-<div class="login">
-  <h2>Admin Login</h2>
-  <input type="text" id="username" placeholder="Username">
-  <input type="password" id="password" placeholder="Password">
-  <button onclick="login()">Login</button>
-</div>
+  <!-- Upload -->
+  <section class="card" id="uploadCard" style="display:none;">
+    <h2 style="margin:0 0 8px 0;font-size:16px">Upload to MEGA</h2>
+    <label>File</label>
+    <input id="fileInput" type="file" />
+    <label>Display name</label>
+    <input id="dispName" type="text" placeholder="Optional display name" />
+    <label>Description</label>
+    <textarea id="desc" rows="2" placeholder="Optional description"></textarea>
+    <div style="margin-top:10px;">
+      <button id="btnUpload">Upload</button>
+      <span id="uploadMsg" class="muted" style="margin-left:12px"></span>
+    </div>
+  </section>
 
-<div class="upload" style="display:none;">
-  <h2>Upload Photo</h2>
-  <input type="text" id="photoName" placeholder="Photo Name">
-  <textarea id="photoDesc" placeholder="Description"></textarea>
-  <input type="file" id="photoFile">
-  <button onclick="uploadPhoto()">Upload</button>
-</div>
+  <!-- Gallery -->
+  <section class="card">
+    <h2 style="margin:0 0 8px 0;font-size:16px">Gallery</h2>
+    <div style="margin-bottom:8px;">
+      <button id="btnRefresh">Refresh</button>
+      <span class="muted" style="margin-left:8px">Auto shows list from <code>/uploads</code></span>
+    </div>
+    <div id="gallery"></div>
+  </section>
 
-<div class="gallery">
-  <h2>Gallery</h2>
-  <div id="galleryItems"></div>
-</div>
+  <script>
+    const baseURL = ''; // same origin
+    const tokenKey = 'mega_admin_token';
 
-<script>
-let token = '';
+    // DOM
+    const usernameEl = document.getElementById('username');
+    const passwordEl = document.getElementById('password');
+    const btnLogin = document.getElementById('btnLogin');
+    const btnLogout = document.getElementById('btnLogout');
+    const loginMsg = document.getElementById('loginMsg');
 
-// ===== Admin Login =====
-async function login() {
-  const username = document.getElementById('username').value;
-  const password = document.getElementById('password').value;
-  const res = await fetch('/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password })
-  });
-  const data = await res.json();
-  if (data.token) {
-    token = data.token;
-    alert('Login successful ✅');
-    document.querySelector('.upload').style.display = 'block';
-  } else {
-    alert('Login failed ❌');
-  }
-}
+    const uploadCard = document.getElementById('uploadCard');
+    const fileInput = document.getElementById('fileInput');
+    const dispName = document.getElementById('dispName');
+    const desc = document.getElementById('desc');
+    const btnUpload = document.getElementById('btnUpload');
+    const uploadMsg = document.getElementById('uploadMsg');
 
-// ===== Upload Photo =====
-async function uploadPhoto() {
-  const file = document.getElementById('photoFile').files[0];
-  const name = document.getElementById('photoName').value;
-  const description = document.getElementById('photoDesc').value;
-  if (!file) { alert('Select a photo!'); return; }
+    const galleryEl = document.getElementById('gallery');
+    const btnRefresh = document.getElementById('btnRefresh');
 
-  const formData = new FormData();
-  formData.append('photo', file);
-  formData.append('name', name);
-  formData.append('description', description);
+    // Helpers
+    function setToken(t) {
+      if (t) {
+        localStorage.setItem(tokenKey, t);
+        uploadCard.style.display = 'block';
+        btnLogout.style.display = 'inline-block';
+        btnLogin.style.display = 'none';
+        loginMsg.textContent = 'Logged in';
+      } else {
+        localStorage.removeItem(tokenKey);
+        uploadCard.style.display = 'none';
+        btnLogout.style.display = 'none';
+        btnLogin.style.display = 'inline-block';
+        loginMsg.textContent = '';
+      }
+    }
 
-  const res = await fetch('/upload', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + token },
-    body: formData
-  });
-  const data = await res.json();
-  if (data.success) {
-    alert('Photo uploaded ✅');
-    loadGallery();
-  } else {
-    alert('Upload failed ❌');
-  }
-}
+    function getToken() {
+      return localStorage.getItem(tokenKey);
+    }
 
-// ===== Load Gallery =====
-async function loadGallery() {
-  const res = await fetch('/uploads');
-  const photos = await res.json();
-  const gallery = document.getElementById('galleryItems');
-  gallery.innerHTML = '';
-  photos.forEach(p => {
-    const div = document.createElement('div');
-    div.className = 'gallery-item';
-    div.innerHTML = `
-      <img src="/uploads/${p.file}" alt="${p.name}">
-      <strong>${p.name}</strong>
-      <p>${p.description}</p>
-      ${p.megaLink ? `<a class="mega-link" href="${p.megaLink}" target="_blank">Download from MEGA</a>` : ''}
-    `;
-    gallery.appendChild(div);
-  });
-}
+    // Init
+    if (getToken()) setToken(getToken());
 
-// Initial load
-loadGallery();
-</script>
+    // Login
+    btnLogin.addEventListener('click', async () => {
+      loginMsg.textContent = 'Logging in...';
+      try {
+        const res = await fetch(baseURL + '/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ username: usernameEl.value, password: passwordEl.value })
+        });
+        const data = await res.json();
+        if (res.ok && data.token) {
+          setToken(data.token);
+        } else {
+          loginMsg.textContent = data.error || 'Login failed';
+        }
+      } catch (err) {
+        loginMsg.textContent = 'Network error';
+      }
+    });
 
+    btnLogout.addEventListener('click', () => {
+      setToken(null);
+    });
+
+    // Upload
+    btnUpload.addEventListener('click', async () => {
+      uploadMsg.textContent = '';
+      const file = fileInput.files[0];
+      if (!file) { uploadMsg.textContent = 'No file selected'; return; }
+      const t = getToken();
+      if (!t) { uploadMsg.textContent = 'Not logged in'; return; }
+
+      const form = new FormData();
+      form.append('photo', file);
+      form.append('name', dispName.value || file.name);
+      form.append('description', desc.value || '');
+
+      uploadMsg.textContent = 'Uploading...';
+      try {
+        const res = await fetch(baseURL + '/upload', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + t },
+          body: form
+        });
+        const data = await res.json();
+        if (res.ok) {
+          uploadMsg.textContent = 'Uploaded ✓';
+          fileInput.value = '';
+          dispName.value = '';
+          desc.value = '';
+          refreshGallery();
+        } else {
+          uploadMsg.textContent = data.error || 'Upload failed';
+        }
+      } catch (err) {
+        uploadMsg.textContent = 'Network error';
+      }
+    });
+
+    // Refresh gallery
+    async function refreshGallery() {
+      galleryEl.innerHTML = 'Loading...';
+      try {
+        const res = await fetch(baseURL + '/uploads');
+        const arr = await res.json();
+        if (!Array.isArray(arr)) {
+          galleryEl.innerHTML = '<div class="muted">API returned invalid data</div>';
+          return;
+        }
+        if (arr.length === 0) {
+          galleryEl.innerHTML = '<div class="muted">No uploads yet</div>';
+          return;
+        }
+        galleryEl.innerHTML = '';
+        arr.slice().reverse().forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'gallery-item';
+          const left = document.createElement('div');
+          left.className = 'gallery-left';
+          left.innerHTML = `<div style="font-weight:600">${escapeHtml(item.name || item.file)}</div>
+                            <div class="small">${escapeHtml(item.description || '')}</div>
+                            <div style="margin-top:6px;"><a class="mlink" href="${escapeHtml(item.megaLink || '#')}" target="_blank">${escapeHtml(item.megaLink || 'No link')}</a></div>`;
+          const right = document.createElement('div');
+          right.style.whiteSpace = 'nowrap';
+          const delBtn = document.createElement('button');
+          delBtn.textContent = 'Delete';
+          delBtn.addEventListener('click', () => deleteItem(item.file));
+          right.appendChild(delBtn);
+          div.appendChild(left);
+          div.appendChild(right);
+          galleryEl.appendChild(div);
+        });
+      } catch (err) {
+        galleryEl.innerHTML = '<div class="muted">Failed to load</div>';
+      }
+    }
+
+    // Delete
+    async function deleteItem(fileName) {
+      if (!confirm('Delete "' + fileName + '" from gallery meta?')) return;
+      const t = getToken();
+      if (!t) { alert('Not logged in'); return; }
+      try {
+        const res = await fetch(baseURL + '/uploads/' + encodeURIComponent(fileName), {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + t }
+        });
+        const data = await res.json();
+        if (res.ok) {
+          refreshGallery();
+        } else {
+          alert(data.error || 'Delete failed');
+        }
+      } catch (err) {
+        alert('Network error');
+      }
+    }
+
+    // Utilities
+    function escapeHtml(s) {
+      if (!s) return '';
+      return s.replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    }
+
+    // Events
+    btnRefresh.addEventListener('click', refreshGallery);
+
+    // initial load
+    refreshGallery();
+  </script>
 </body>
 </html>
