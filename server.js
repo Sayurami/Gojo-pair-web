@@ -14,30 +14,39 @@ app.get("/", (req, res) => {
 });
 
 // Multer temp storage
-const upload = multer({ dest: path.join(__dirname, "public", "uploads") });
+const uploadDir = path.join(__dirname, "public", "uploads");
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+const upload = multer({ dest: uploadDir });
 
 // Upload route
 app.post("/upload", upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
+  // Save file locally (Multer already did this)
+  const localFilePath = path.join(uploadDir, req.file.filename);
+
+  let megaLink = null;
+
   try {
-    // Upload to Mega
-    const buffer = fs.readFileSync(req.file.path);
-    const megaLink = await uploadToMega(req.file.originalname, buffer);
-
-    // Remove temp file
-    fs.unlinkSync(req.file.path);
-
-    res.json({ success: true, megaLink });
+    // Try upload to Mega (wrap in try/catch to avoid crash)
+    megaLink = await uploadToMega(req.file.originalname, fs.readFileSync(localFilePath));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Mega upload failed" });
+    console.error("Mega upload failed:", err);
   }
+
+  // Respond with both local and Mega info
+  res.json({
+    success: true,
+    file: req.file.filename,
+    localPath: "/uploads/" + req.file.filename,
+    megaLink
+  });
 });
 
-// Optional: list uploads
+// List local uploads
 app.get("/uploads", (req, res) => {
-  fs.readdir(path.join(__dirname, "public", "uploads"), (err, files) => {
+  fs.readdir(uploadDir, (err, files) => {
     if (err) return res.status(500).json({ error: "Failed to list uploads" });
     res.json(files);
   });
