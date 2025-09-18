@@ -1,55 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gojo Pair Web</title>
-  <style>
-    body { font-family: Arial; text-align:center; margin:30px; }
-    img { max-width: 200px; margin:10px; border:1px solid #ccc; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gojo Pair Web</title>
+<style>
+  body { font-family: Arial; text-align:center; margin:30px; }
+  img { max-width:200px; margin:10px; border:1px solid #ccc; }
+  button { display:block; margin-top:5px; }
+</style>
 </head>
 <body>
-  <h1>Upload & Display Images</h1>
+<h1>Upload & Display Images</h1>
 
-  <form id="uploadForm" enctype="multipart/form-data">
-    <input type="file" name="file" accept="image/*" required>
-    <button type="submit">Upload</button>
-  </form>
+<form id="uploadForm" enctype="multipart/form-data">
+  <input type="file" name="file" accept="image/*" required>
+  <button type="submit">Upload</button>
+</form>
 
-  <h2>Uploaded Images:</h2>
-  <div id="imageContainer"></div>
+<h2>Uploaded Images:</h2>
+<div id="imageContainer"></div>
 
-  <script>
-    const form = document.getElementById("uploadForm");
-    const container = document.getElementById("imageContainer");
+<script>
+const form = document.getElementById("uploadForm");
+const container = document.getElementById("imageContainer");
 
-    async function loadImages() {
-      const res = await fetch("/uploads");
-      const files = await res.json();
-      container.innerHTML = "";
-      files.forEach(f => {
-        const img = document.createElement("img");
-        img.src = "/uploads/" + f;
-        container.appendChild(img);
-      });
-    }
-
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const fileInput = form.querySelector("input[type=file]");
-      const formData = new FormData();
-      formData.append("file", fileInput.files[0]);
-
-      const res = await fetch("/upload", { method: "POST", body: formData });
-      const data = await res.json();
-
-      alert(data.megaLink ? `Mega link: ${data.megaLink}` : "Uploaded locally");
-      fileInput.value = "";
+async function loadImages() {
+  const res = await fetch("/uploads");
+  const files = await res.json();
+  container.innerHTML = "";
+  files.forEach(f => {
+    const div = document.createElement("div");
+    const img = document.createElement("img");
+    img.src = f.megaLink || "/uploads/" + f.filename; // Mega link if available
+    const btn = document.createElement("button");
+    btn.textContent = "Delete";
+    btn.onclick = async () => {
+      await fetch("/uploads/" + f.filename, { method: "DELETE" });
       loadImages();
-    });
+    };
+    div.appendChild(img);
+    div.appendChild(btn);
+    container.appendChild(div);
+  });
+}
 
-    loadImages();
-  </script>
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fileInput = form.querySelector("input[type=file]");
+  const formData = new FormData();
+  formData.append("file", fileInput.files[0]);
+
+  const res = await fetch("/upload", { method: "POST", body: formData });
+  const data = await res.json();
+  alert(data.megaLink ? `Mega link: ${data.megaLink}` : "Uploaded locally");
+  fileInput.value = "";
+  loadImages();
+});
+
+loadImages();
+</script>
 </body>
 </html>
