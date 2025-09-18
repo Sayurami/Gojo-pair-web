@@ -8,28 +8,24 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { google } = require('googleapis');
 
-require('dotenv').config();
-
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3000; // env variable නැතුව
 
 // 🔑 Admin credentials
-const JWT_SECRET = process.env.JWT_SECRET || 'Sayura2008***7111s';
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'sayura';
-const ADMIN_PASSWORD_HASH = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'Sayura2008***7', 10);
+const JWT_SECRET = 'Sayura2008***7111s';
+const ADMIN_USERNAME = 'sayura';
+const ADMIN_PASSWORD_HASH = bcrypt.hashSync('Sayura2008***7', 10);
 
 // 📂 Local storage path
 const uploadDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-// 📦 Multer storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
 });
 const upload = multer({ storage });
 
-// 🌐 Middleware
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -52,7 +48,7 @@ function verifyToken(req, res, next) {
   });
 }
 
-// 🟢 Login route
+// 🟢 Login
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
   if (username !== ADMIN_USERNAME || !bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) {
@@ -69,14 +65,10 @@ app.get('/uploads/', (req, res) => {
   res.json(meta);
 });
 
-// 🏠 Root route
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// 🔒 Google Drive config
+// 🔒 Google Drive config (env variable නැතුව)
 const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
-const KEYFILE = path.join(__dirname, 'service-account.json'); // Google service account JSON
+const KEYFILE = path.join(__dirname, 'service-account.json'); // place your service account JSON here
+const GDRIVE_FOLDER_ID = '1hAve0c3_UjrJ7PEc3dDt4COUfsihfzmq'; // fixed folder id
 
 const auth = new google.auth.GoogleAuth({
   keyFile: KEYFILE,
@@ -85,29 +77,29 @@ const auth = new google.auth.GoogleAuth({
 
 const drive = google.drive({ version: 'v3', auth });
 
-// 🔒 Upload route (Admin)
+// 🔒 Admin upload route
 app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
   if (!req.file) return res.status(400).send('No file uploaded!');
-  const { name, description } = req.body;
+  const { name, link, description } = req.body;
 
   let meta = [];
   if (fs.existsSync(metaFile)) meta = JSON.parse(fs.readFileSync(metaFile));
 
-  // add to local meta
   const fileMeta = {
     file: req.file.filename,
     name: name || 'No Name',
+    link: link || '',
     description: description || 'No Description'
   };
   meta.push(fileMeta);
   fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
 
-  // upload to Google Drive
+  // Google Drive upload
   try {
     const gfile = await drive.files.create({
       requestBody: {
         name: req.file.filename,
-        parents: [process.env.GDRIVE_FOLDER_ID], // folder ID in your Drive
+        parents: [GDRIVE_FOLDER_ID],
       },
       media: {
         mimeType: req.file.mimetype,
@@ -116,13 +108,13 @@ app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
     });
     console.log('Uploaded to Drive:', gfile.data.id);
   } catch (err) {
-    console.error('Google Drive upload error:', err);
+    console.error('Drive upload error:', err);
   }
 
   res.json({ success: true, filePath: '/uploads/' + req.file.filename });
 });
 
-// 🔒 Delete route (Admin)
+// 🔒 Admin delete
 app.delete('/uploads/:file', verifyToken, (req, res) => {
   const fileName = req.params.file;
   let meta = [];
@@ -138,6 +130,14 @@ app.delete('/uploads/:file', verifyToken, (req, res) => {
   fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
 
   res.json({ success: true });
+});
+
+// 🔍 Public download route
+app.get('/download/:file', (req, res) => {
+  const fileName = req.params.file;
+  const filePath = path.join(uploadDir, fileName);
+  if (!fs.existsSync(filePath)) return res.status(404).send('File not found');
+  res.download(filePath);
 });
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
