@@ -9,17 +9,18 @@ const bcrypt = require('bcryptjs');
 const { google } = require('googleapis');
 
 const app = express();
-const PORT = process.env.PORT || 3000; // Heroku compatible port
+const PORT = 3000;
 
 // 🔑 Admin credentials
 const JWT_SECRET = 'Sayura2008***7111s';
 const ADMIN_USERNAME = 'sayura';
 const ADMIN_PASSWORD_HASH = bcrypt.hashSync('Sayura2008***7', 10);
 
-// 📂 Local storage path
+// 📂 Local storage
 const uploadDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
+// Multer config
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
@@ -64,19 +65,12 @@ app.get('/uploads/', (req, res) => {
   res.json(meta);
 });
 
-// 🏠 Root route (fix H27)
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
 // 🔒 Google Drive config
 const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
-const KEYFILE = path.join(__dirname, 'service-account.json');
-const auth = new google.auth.GoogleAuth({
-  keyFile: KEYFILE,
-  scopes: SCOPES,
-});
+const KEYFILE = path.join(__dirname, 'service-account.json'); // service account JSON
+const auth = new google.auth.GoogleAuth({ keyFile: KEYFILE, scopes: SCOPES });
 const drive = google.drive({ version: 'v3', auth });
+const DRIVE_FOLDER_ID = '1hAve0c3_UjrJ7PEc3dDt4COUfsihfzmq'; // change if needed
 
 // 🔒 Upload route (Admin)
 app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
@@ -97,14 +91,8 @@ app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
   // Upload to Google Drive
   try {
     const gfile = await drive.files.create({
-      requestBody: {
-        name: req.file.filename,
-        parents: ['1hAve0c3_UjrJ7PEc3dDt4COUfsihfzmq'], // Google Drive folder ID
-      },
-      media: {
-        mimeType: req.file.mimetype,
-        body: fs.createReadStream(path.join(uploadDir, req.file.filename)),
-      },
+      requestBody: { name: req.file.filename, parents: [DRIVE_FOLDER_ID] },
+      media: { mimeType: req.file.mimetype, body: fs.createReadStream(path.join(uploadDir, req.file.filename)) },
     });
     console.log('Uploaded to Drive:', gfile.data.id);
   } catch (err) {
@@ -115,7 +103,7 @@ app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
 });
 
 // 🔒 Delete route (Admin)
-app.delete('/uploads/:file', verifyToken, (req, res) => {
+app.delete('/uploads/:file', verifyToken, async (req, res) => {
   const fileName = req.params.file;
   let meta = [];
   if (fs.existsSync(metaFile)) meta = JSON.parse(fs.readFileSync(metaFile));
@@ -128,6 +116,20 @@ app.delete('/uploads/:file', verifyToken, (req, res) => {
 
   meta.splice(index, 1);
   fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
+
+  // Delete from Google Drive
+  try {
+    const driveFiles = await drive.files.list({
+      q: `'${DRIVE_FOLDER_ID}' in parents and name='${fileName}' and trashed=false`,
+      fields: 'files(id, name)'
+    });
+    if (driveFiles.data.files.length > 0) {
+      await drive.files.delete({ fileId: driveFiles.data.files[0].id });
+      console.log('Deleted from Drive:', fileName);
+    }
+  } catch (err) {
+    console.error('Google Drive delete error:', err);
+  }
 
   res.json({ success: true });
 });
