@@ -2,78 +2,43 @@ const fs = require('fs');
 const path = require('path');
 const { Storage } = require('megajs');
 
-const uploadDir = path.join(__dirname, 'public', 'uploads');
-const backupDir = path.join(__dirname, 'public', 'uploads_backup');
-const metaFile = path.join(uploadDir, 'meta.json');
+// ====================
+// MEGA credentials
+// ====================
+const MEGA_EMAIL = 'nnarutouzumaki25000@gmail.com';
+const MEGA_PASSWORD = 'Sayura2008***8';
 
-// MEGA login
-const megaStorage = new Storage({
-  email: "nnarutouzumaki25000@gmail.com",
-  password: "Sayura2008***8"
-}, () => console.log("[MEGA] Logged in ✅"));
+// Login to MEGA
+const storage = new Storage({
+  email: MEGA_EMAIL,
+  password: MEGA_PASSWORD
+}, () => console.log('[MEGA] Logged in ✅'));
 
-// Helper: read meta.json
-function readMeta() {
-  try {
-    if (!fs.existsSync(metaFile)) return [];
-    const content = fs.readFileSync(metaFile, 'utf-8').trim();
-    if (!content) return [];
-    return JSON.parse(content);
-  } catch (err) {
-    console.error('Error reading meta.json:', err);
-    return [];
-  }
-}
-
-// Helper: write meta.json
-function writeMeta(meta) {
-  try {
-    fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
-  } catch (err) {
-    console.error('Error writing meta.json:', err);
-  }
-}
-
-// 🔹 Function to handle MEGA upload
-function uploadToMega(fileName) {
+// ====================
+// Upload function
+// ====================
+function uploadToMega(filename) {
   return new Promise((resolve, reject) => {
-    try {
-      const sourcePath = path.join(uploadDir, fileName);
-      const backupPath = path.join(backupDir, fileName);
+    const filePath = path.join(__dirname, 'public', 'uploads', filename);
+    if (!fs.existsSync(filePath)) return reject('File not found');
 
-      // 1️⃣ Local backup
-      if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
-      fs.copyFileSync(sourcePath, backupPath);
-      console.log(`[BACKUP] File copied: ${fileName}`);
+    const upload = storage.upload(filename);
+    const readStream = fs.createReadStream(filePath);
 
-      // 2️⃣ Upload to MEGA
-      const uploadStream = megaStorage.upload(fileName);
-      const readStream = fs.createReadStream(sourcePath);
-      readStream.pipe(uploadStream);
+    readStream.pipe(upload);
 
-      uploadStream.on('complete', file => {
-        console.log(`[MEGA] Uploaded: ${file.name}`);
-        console.log(`[MEGA] Link: ${file.link}`);
+    upload.on('complete', file => {
+      console.log(`[MEGA] Uploaded: ${filename}`);
+      console.log(`[MEGA] Link: ${file.link}`);
+      resolve(file.link); // return MEGA link
+    });
 
-        // Update meta.json
-        const meta = readMeta();
-        const entry = meta.find(m => m.file === fileName);
-        if (entry) {
-          entry.megaLink = file.link;
-          writeMeta(meta);
-        }
-        resolve(file.link);
-      });
-
-      uploadStream.on('error', err => {
-        console.error('[MEGA] Upload failed:', err);
-        reject(err);
-      });
-
-    } catch (err) {
+    upload.on('error', err => {
+      console.error('[MEGA] Upload error:', err);
       reject(err);
-    }
+    });
   });
 }
 
+// Export
 module.exports = { uploadToMega };
