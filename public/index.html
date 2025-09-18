@@ -2,101 +2,60 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Upload</title>
+  <title>File Upload</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 40px; }
-    input, button { margin: 10px 0; padding: 8px; width: 100%; max-width: 300px; }
-    .hidden { display: none; }
-    .success { color: green; }
-    .error { color: red; }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    input, button { margin: 5px 0; }
+    img { max-width: 200px; margin: 5px; }
   </style>
 </head>
 <body>
-  <h2>Admin Login</h2>
-  <div id="loginDiv">
-    <input type="text" id="username" placeholder="Username">
-    <input type="password" id="password" placeholder="Password">
-    <button onclick="login()">Login</button>
-    <p id="loginMsg" class="error"></p>
-  </div>
+  <h1>File Upload (Local + Mega Backup)</h1>
 
-  <div id="uploadDiv" class="hidden">
-    <h2>Upload File</h2>
-    <input type="text" id="fileName" placeholder="File Name">
-    <input type="text" id="fileDesc" placeholder="File Description">
-    <input type="file" id="fileInput">
-    <button onclick="uploadFile()">Upload</button>
-    <p id="uploadMsg"></p>
-  </div>
+  <form id="uploadForm">
+    <input type="text" name="name" placeholder="Name"><br>
+    <input type="text" name="description" placeholder="Description"><br>
+    <input type="file" name="photo"><br>
+    <button type="submit">Upload</button>
+  </form>
+
+  <h2>Gallery</h2>
+  <div id="gallery"></div>
 
   <script>
-    let token = '';
+    const token = prompt("Enter admin token:");
 
-    async function login() {
-      const username = document.getElementById('username').value;
-      const password = document.getElementById('password').value;
-      const msg = document.getElementById('loginMsg');
-
-      msg.textContent = '';
-      try {
-        const res = await fetch('/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password })
-        });
-        const data = await res.json();
-        if (res.ok) {
-          token = data.token;
-          document.getElementById('loginDiv').classList.add('hidden');
-          document.getElementById('uploadDiv').classList.remove('hidden');
-        } else {
-          msg.textContent = data.error || 'Login failed';
-        }
-      } catch (err) {
-        msg.textContent = 'Error connecting to server';
+    const form = document.getElementById('uploadForm');
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const res = await fetch('/upload', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token },
+        body: formData
+      });
+      const data = await res.json();
+      if(data.success) {
+        alert('Uploaded locally!');
+        loadGallery();
+      } else {
+        alert('Upload failed: ' + data.error);
       }
+    });
+
+    async function loadGallery() {
+      const res = await fetch('/uploads/');
+      const files = await res.json();
+      const gallery = document.getElementById('gallery');
+      gallery.innerHTML = '';
+      files.forEach(f => {
+        const div = document.createElement('div');
+        div.innerHTML = `<p>${f.name}</p><p>${f.description}</p><img src="/uploads/${f.file}">`;
+        gallery.appendChild(div);
+      });
     }
 
-    async function uploadFile() {
-      const fileInput = document.getElementById('fileInput');
-      const fileName = document.getElementById('fileName').value;
-      const fileDesc = document.getElementById('fileDesc').value;
-      const msg = document.getElementById('uploadMsg');
-
-      if (!fileInput.files.length) { 
-        msg.textContent = 'Select a file first'; 
-        msg.className = 'error';
-        return; 
-      }
-
-      const formData = new FormData();
-      formData.append('photo', fileInput.files[0]);
-      formData.append('name', fileName);
-      formData.append('description', fileDesc);
-
-      msg.textContent = 'Uploading...';
-      msg.className = '';
-
-      try {
-        const res = await fetch('/upload', {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + token },
-          body: formData
-        });
-        const data = await res.json();
-        if (res.ok) {
-          msg.textContent = 'Uploaded! Mega Link: ' + (data.megaLink || 'Processing...');
-          msg.className = 'success';
-        } else {
-          msg.textContent = data.error || 'Upload failed';
-          msg.className = 'error';
-        }
-      } catch (err) {
-        msg.textContent = 'Error connecting to server';
-        msg.className = 'error';
-      }
-    }
+    loadGallery();
   </script>
 </body>
 </html>
