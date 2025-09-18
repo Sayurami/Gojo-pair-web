@@ -1,18 +1,17 @@
-const { Storage } = require('megajs');
+const { Storage } = require("megajs");
 
-const email = process.env.MEGA_EMAIL || 'nnarutouzumaki25000@gmail.com';
-const password = process.env.MEGA_PASSWORD || 'Sayura2008***8';
+const email = process.env.MEGA_EMAIL || "nnarutouzumaki25000@gmail.com";
+const password = process.env.MEGA_PASSWORD || "Sayura2008***7";
 
-// Upload buffer directly to MEGA
+// Upload buffer to Mega and return public link
 async function uploadToMega(fileName, buffer) {
   return new Promise((resolve, reject) => {
     const storage = new Storage({ email, password });
 
-    storage.on('ready', () => {
+    storage.on("ready", () => {
       const upload = storage.upload(fileName, buffer, (err, file) => {
         if (err) return reject(err);
 
-        // Export public link
         file.link((err, url) => {
           if (err) return reject(err);
           resolve(url);
@@ -20,7 +19,7 @@ async function uploadToMega(fileName, buffer) {
       });
     });
 
-    storage.on('error', (err) => reject(err));
+    storage.on("error", (err) => reject(err));
   });
 }
 
