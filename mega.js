@@ -1,7 +1,7 @@
 const { Storage } = require("megajs");
 
 const email = process.env.MEGA_EMAIL || "nnarutouzumaki25000@gmail.com";
-const password = process.env.MEGA_PASSWORD || "Sayura2008***7";
+const password = process.env.MEGA_PASSWORD || "Sayura2008***8";
 
 // Upload buffer to Mega and return public link
 async function uploadToMega(fileName, buffer) {
