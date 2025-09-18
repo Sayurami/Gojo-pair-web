@@ -8,6 +8,7 @@
   body { font-family: Arial; text-align:center; margin:30px; }
   img { max-width:200px; margin:10px; border:1px solid #ccc; }
   button { display:block; margin-top:5px; }
+  div.item { display:inline-block; text-align:center; margin:10px; }
 </style>
 </head>
 <body>
@@ -31,14 +32,18 @@ async function loadImages() {
   container.innerHTML = "";
   files.forEach(f => {
     const div = document.createElement("div");
+    div.className = "item";
+
     const img = document.createElement("img");
-    img.src = f.megaLink || "/uploads/" + f.filename; // Mega link if available
+    img.src = f.megaLink || "/uploads/" + f.filename; // Mega link preferred
+
     const btn = document.createElement("button");
     btn.textContent = "Delete";
     btn.onclick = async () => {
       await fetch("/uploads/" + f.filename, { method: "DELETE" });
       loadImages();
     };
+
     div.appendChild(img);
     div.appendChild(btn);
     container.appendChild(div);
