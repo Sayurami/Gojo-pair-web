@@ -10,29 +10,40 @@ const { uploadToMega } = require('./mega'); // MEGA module
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 🔑 Config
+// ====================
+// Admin config
+// ====================
 const JWT_SECRET = 'Sayura2008***7111s';
 const ADMIN_USERNAME = 'sayura';
 const ADMIN_PASSWORD_HASH = bcrypt.hashSync('Sayura2008***7', 10);
 
-// Upload path
+// ====================
+// Upload folder
+// ====================
 const uploadDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-// Multer
+// ====================
+// Multer setup
+// ====================
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
 });
 const upload = multer({ storage });
 
+// ====================
+// Express middleware
+// ====================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const metaFile = path.join(uploadDir, 'meta.json');
 
-// ===== JWT helpers =====
+// ====================
+// JWT helpers
+// ====================
 function generateToken(user) {
   return jwt.sign({ username: user.username }, JWT_SECRET, { expiresIn: '2h' });
 }
@@ -47,7 +58,9 @@ function verifyToken(req, res, next) {
   });
 }
 
-// ===== Meta helpers =====
+// ====================
+// Meta helpers
+// ====================
 function readMeta() {
   try {
     if (!fs.existsSync(metaFile)) return [];
@@ -68,7 +81,9 @@ function writeMeta(meta) {
   }
 }
 
-// ===== Login =====
+// ====================
+// Admin login
+// ====================
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
   if (username !== ADMIN_USERNAME || !bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) {
@@ -78,7 +93,9 @@ app.post('/login', (req, res) => {
   res.json({ token });
 });
 
-// ===== Upload =====
+// ====================
+// Upload route
+// ====================
 app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded!' });
 
@@ -107,10 +124,16 @@ app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
   }
 });
 
-// ===== Public gallery =====
-app.get('/uploads', (req, res) => res.json(readMeta()));
+// ====================
+// Public gallery API
+// ====================
+app.get('/uploads', (req, res) => {
+  res.json(readMeta());
+});
 
-// ===== Delete route =====
+// ====================
+// Delete route
+// ====================
 app.delete('/uploads/:file', verifyToken, (req, res) => {
   const fileName = req.params.file;
   const meta = readMeta();
@@ -125,5 +148,7 @@ app.delete('/uploads/:file', verifyToken, (req, res) => {
   res.json({ success: true });
 });
 
-// ===== Start server =====
+// ====================
+// Start server
+// ====================
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
