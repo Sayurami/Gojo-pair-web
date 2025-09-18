@@ -1,145 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Gojo Pair Web</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
-    .login, .upload, .gallery { margin-bottom: 30px; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 0 8px rgba(0,0,0,0.1); }
-    input, button { padding: 8px; margin: 5px; }
-    img { max-width: 150px; max-height: 150px; cursor: pointer; margin: 5px; }
-    .modal { display: none; position: fixed; z-index: 999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); }
-    .modal img { display: block; max-width: 90%; max-height: 90%; margin: 50px auto; }
-    .modal span { position: absolute; top: 20px; right: 40px; font-size: 40px; color: #fff; cursor: pointer; }
-    .delete-btn { display:block; margin-top:5px; background:red;color:white;border:none;padding:5px;border-radius:3px;cursor:pointer;}
-  </style>
+<meta charset="UTF-8">
+<title>Gallery + Admin Upload</title>
+<style>
+body { font-family: Arial; padding: 20px; }
+input, button { margin: 5px; }
+img { max-width: 150px; margin: 5px; }
+</style>
 </head>
 <body>
+<h2>Admin Login</h2>
+<input id="username" placeholder="Username">
+<input id="password" type="password" placeholder="Password">
+<button onclick="login()">Login</button>
 
-<div class="login">
-  <h2>Admin Login</h2>
-  <input type="text" id="username" placeholder="Username">
-  <input type="password" id="password" placeholder="Password">
-  <button onclick="login()">Login</button>
-  <p id="login-msg"></p>
+<h2>Upload</h2>
+<div id="uploadSection" style="display:none;">
+<input id="name" placeholder="Name">
+<input id="description" placeholder="Description">
+<input id="link" placeholder="Link (optional)">
+<input type="file" id="photo">
+<button onclick="uploadFile()">Upload</button>
 </div>
 
-<div class="upload" style="display:none;">
-  <h2>Upload File</h2>
-  <form id="uploadForm">
-    <input type="text" name="name" placeholder="Name" required><br>
-    <input type="text" name="link" placeholder="Link"><br>
-    <input type="text" name="description" placeholder="Description"><br>
-    <input type="file" name="photo" required><br>
-    <button type="submit">Upload</button>
-  </form>
-  <p id="upload-msg"></p>
-</div>
-
-<div class="gallery">
-  <h2>Gallery</h2>
-  <div id="galleryItems"></div>
-</div>
-
-<!-- Zoom modal -->
-<div class="modal" id="modal">
-  <span onclick="closeModal()">&times;</span>
-  <img id="modalImg" src="">
-</div>
+<h2>Gallery</h2>
+<div id="gallery"></div>
 
 <script>
 let token = '';
 
 function login() {
-  const username = document.getElementById('username').value;
-  const password = document.getElementById('password').value;
-
   fetch('/login', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({username, password})
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      username: document.getElementById('username').value,
+      password: document.getElementById('password').value
+    })
+  }).then(r=>r.json()).then(d=>{
+    if(d.token){ token = d.token; document.getElementById('uploadSection').style.display='block'; alert('Login success'); }
+    else alert('Login failed');
   })
-  .then(r => r.json())
-  .then(data => {
-    if(data.token){
-      token = data.token;
-      document.querySelector('.login').style.display='none';
-      document.querySelector('.upload').style.display='block';
-      document.getElementById('login-msg').innerText='';
-    } else {
-      document.getElementById('login-msg').innerText=data.error || 'Login failed';
-    }
-  });
 }
 
-// Upload
-document.getElementById('uploadForm').addEventListener('submit', function(e){
-  e.preventDefault();
-  const formData = new FormData(this);
+function uploadFile() {
+  const fileInput = document.getElementById('photo');
+  const formData = new FormData();
+  formData.append('photo', fileInput.files[0]);
+  formData.append('name', document.getElementById('name').value);
+  formData.append('description', document.getElementById('description').value);
+  formData.append('link', document.getElementById('link').value);
 
   fetch('/upload', {
     method:'POST',
-    headers: { 'Authorization': 'Bearer '+token },
+    headers:{ 'Authorization':'Bearer '+token },
     body: formData
+  }).then(r=>r.json()).then(d=>{
+    if(d.success){ alert('Uploaded'); loadGallery(); }
+    else alert('Upload failed');
   })
-  .then(r=>r.json())
-  .then(data=>{
-    if(data.success){
-      document.getElementById('upload-msg').innerText='Upload successful!';
-      loadGallery();
-    } else {
-      document.getElementById('upload-msg').innerText='Upload failed!';
-    }
-  });
-});
+}
 
-// Load gallery
-function loadGallery(){
-  fetch('/uploads/')
-  .then(r=>r.json())
-  .then(items=>{
-    const gallery = document.getElementById('galleryItems');
+function loadGallery() {
+  fetch('/uploads/').then(r=>r.json()).then(files=>{
+    const gallery = document.getElementById('gallery');
     gallery.innerHTML='';
-    items.forEach(item=>{
-      const div = document.createElement('div');
-      div.innerHTML = `
-        <img src="/uploads/${item.file}" onclick="zoomImage('/uploads/${item.file}')">
-        <div><strong>${item.name}</strong></div>
-        <div>${item.description}</div>
-        ${item.link ? `<a href="${item.link}" target="_blank">Link</a>` : ''}
-        <a href="/download/${item.file}">Download</a>
-        ${token ? `<button class="delete-btn" onclick="deleteFile('${item.file}')">Delete</button>` : ''}
-      `;
-      gallery.appendChild(div);
+    files.forEach(f=>{
+      gallery.innerHTML+=`
+      <div>
+        <b>${f.name}</b><br>
+        <img src="/uploads/${f.file}"><br>
+        ${f.description}<br>
+        ${f.link?'<a href="'+f.link+'" target="_blank">Link</a>':''}<br>
+        <a href="/download/${f.file}">Download</a> | 
+        <a href="/zoom/${f.file}" target="_blank">Zoom</a> | 
+        <button onclick="deleteFile('${f.file}')">Delete</button>
+      </div>`;
     });
   });
 }
 
-function zoomImage(src){
-  const modal = document.getElementById('modal');
-  document.getElementById('modalImg').src = src;
-  modal.style.display='block';
-}
-
-function closeModal(){
-  document.getElementById('modal').style.display='none';
-}
-
-// Delete
 function deleteFile(file){
-  if(!confirm('Are you sure?')) return;
-  fetch('/uploads/'+file, {
-    method:'DELETE',
-    headers: { 'Authorization': 'Bearer '+token }
-  }).then(r=>r.json())
-    .then(data=>{
-      if(data.success) loadGallery();
-      else alert('Delete failed');
-    });
+  if(!token){ alert('Login first'); return; }
+  fetch('/uploads/'+file, { method:'DELETE', headers:{'Authorization':'Bearer '+token} })
+  .then(r=>r.json()).then(d=>{
+    if(d.success) loadGallery();
+    else alert('Delete failed');
+  });
 }
 
 loadGallery();
 </script>
-
 </body>
 </html>
