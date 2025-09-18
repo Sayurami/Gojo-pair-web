@@ -13,7 +13,7 @@ const uploadDir = path.join(publicDir, "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 app.use(express.static(publicDir));
-app.use("/uploads", express.static(uploadDir)); // serve local uploads
+app.use("/uploads", express.static(uploadDir)); // serve uploads
 app.get("/", (req, res) => res.sendFile(path.join(publicDir, "index.html")));
 
 // Meta file
@@ -27,8 +27,18 @@ function writeMeta(data) {
   fs.writeFileSync(metaFile, JSON.stringify(data, null, 2));
 }
 
-// Multer
-const upload = multer({ dest: uploadDir });
+// ✅ Multer storage with original extension
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const uniqueName = Date.now() + "-" + Math.round(Math.random() * 1E9) + ext;
+    cb(null, uniqueName);
+  }
+});
+const upload = multer({ storage });
 
 // Upload route
 app.post("/upload", upload.single("file"), async (req, res) => {
@@ -47,7 +57,7 @@ app.post("/upload", upload.single("file"), async (req, res) => {
   // Save metadata
   const meta = readMeta();
   meta.push({
-    filename: req.file.filename,
+    filename: req.file.filename,       // now includes .jpg/.png etc
     originalName: req.file.originalname,
     megaLink
   });
