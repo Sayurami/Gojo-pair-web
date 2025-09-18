@@ -1,119 +1,93 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gojo Pair Web Upload</title>
-<style>
-  body { font-family: Arial, sans-serif; background: #f4f4f4; margin:0; padding:0; }
-  .container { max-width: 900px; margin: 20px auto; padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-  h1 { text-align: center; }
-  form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
-  input, textarea, button { padding: 10px; border-radius: 5px; border:1px solid #ccc; }
-  #gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
-  .gallery-item { background: #eee; padding: 10px; border-radius: 5px; text-align: center; }
-  .gallery-item img { max-width: 100%; border-radius: 5px; }
-  button { cursor: pointer; background: #007bff; color: #fff; border: none; }
-  button:hover { background: #0056b3; }
-</style>
+  <meta charset="UTF-8">
+  <title>Gojo Photo Upload</title>
+  <style>
+    body { font-family: Arial; max-width: 800px; margin: auto; padding: 20px; }
+    .gallery { display: flex; flex-wrap: wrap; gap: 10px; }
+    .gallery img { width: 150px; height: 150px; object-fit: cover; }
+    input, button { margin: 5px 0; padding: 5px; }
+  </style>
 </head>
 <body>
-<div class="container">
-  <h1>Gojo Pair Web Upload</h1>
+  <h1>Gojo Photo Upload</h1>
 
-  <!-- Login -->
-  <div id="loginDiv">
-    <h2>Admin Login</h2>
-    <form id="loginForm">
-      <input type="text" name="username" placeholder="Username" required/>
-      <input type="password" name="password" placeholder="Password" required/>
-      <button type="submit">Login</button>
-    </form>
-  </div>
+  <h2>Login (Admin)</h2>
+  <input type="text" id="username" placeholder="Username" />
+  <input type="password" id="password" placeholder="Password" />
+  <button onclick="login()">Login</button>
 
-  <!-- Upload Form (Admin only) -->
-  <form id="uploadForm" style="display:none;" enctype="multipart/form-data">
-    <h2>Upload Photo</h2>
-    <input type="text" name="name" placeholder="Photo Name" required/>
-    <textarea name="description" placeholder="Description"></textarea>
-    <input type="file" name="photo" accept="image/*" required/>
-    <button type="submit">Upload</button>
-  </form>
+  <h2>Upload Photo (Admin)</h2>
+  <input type="file" id="photo" />
+  <input type="text" id="name" placeholder="Photo Name" />
+  <input type="text" id="description" placeholder="Photo Description" />
+  <button onclick="upload()">Upload</button>
 
-  <!-- Gallery -->
   <h2>Gallery</h2>
-  <div id="gallery"></div>
-</div>
+  <div class="gallery" id="gallery"></div>
 
-<script>
-let token = null;
+  <script>
+    let token = '';
 
-// Login
-document.getElementById('loginForm').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const formData = new FormData(e.target);
-  const res = await fetch('/login', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username: formData.get('username'), password: formData.get('password')})});
-  const data = await res.json();
-  if(data.token){
-    token = data.token;
-    document.getElementById('loginDiv').style.display = 'none';
-    document.getElementById('uploadForm').style.display = 'flex';
+    async function login() {
+      const res = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: document.getElementById('username').value,
+          password: document.getElementById('password').value
+        })
+      });
+      const data = await res.json();
+      if (data.token) { token = data.token; alert('Logged in!'); }
+      else alert(data.error || 'Login failed');
+    }
+
+    async function upload() {
+      if (!token) return alert('Login first!');
+      const formData = new FormData();
+      formData.append('photo', document.getElementById('photo').files[0]);
+      formData.append('name', document.getElementById('name').value);
+      formData.append('description', document.getElementById('description').value);
+
+      const res = await fetch('/upload', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token },
+        body: formData
+      });
+      const data = await res.json();
+      alert(data.success ? 'Uploaded!' : 'Upload failed');
+      loadGallery();
+    }
+
+    async function loadGallery() {
+      const res = await fetch('/uploads/');
+      const photos = await res.json();
+      const gallery = document.getElementById('gallery');
+      gallery.innerHTML = '';
+      photos.forEach(p => {
+        const div = document.createElement('div');
+        const img = document.createElement('img');
+        img.src = p.file ? '/uploads/' + p.file : '';
+        div.appendChild(img);
+        if (token) {
+          const del = document.createElement('button');
+          del.textContent = 'Delete';
+          del.onclick = async () => {
+            await fetch('/uploads/' + p.file, {
+              method: 'DELETE',
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            loadGallery();
+          };
+          div.appendChild(del);
+        }
+        gallery.appendChild(div);
+      });
+    }
+
     loadGallery();
-  } else {
-    alert('Login failed');
-  }
-});
-
-// Upload
-document.getElementById('uploadForm').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const form = e.target;
-  const formData = new FormData(form);
-  const res = await fetch('/upload', {method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData});
-  const data = await res.json();
-  if(data.success){
-    alert('Uploaded successfully!');
-    form.reset();
-    loadGallery();
-  } else {
-    alert('Upload failed!');
-  }
-});
-
-// Load gallery
-async function loadGallery(){
-  const res = await fetch('/uploads/');
-  const items = await res.json();
-  const gallery = document.getElementById('gallery');
-  gallery.innerHTML = '';
-  items.forEach(item=>{
-    const div = document.createElement('div');
-    div.className = 'gallery-item';
-    div.innerHTML = `
-      <img src="/uploads/${item.file}" alt="${item.name}"/>
-      <h3>${item.name}</h3>
-      <p>${item.description}</p>
-      ${token ? `<button onclick="deleteFile('${item.file}')">Delete ❌</button>` : ''}
-    `;
-    gallery.appendChild(div);
-  });
-}
-
-// Delete file
-async function deleteFile(file){
-  if(!confirm('Are you sure to delete this file?')) return;
-  const res = await fetch('/uploads/'+file, {method:'DELETE', headers:{'Authorization':'Bearer '+token}});
-  const data = await res.json();
-  if(data.success){
-    alert('Deleted!');
-    loadGallery();
-  } else {
-    alert('Delete failed!');
-  }
-}
-
-// Initial gallery load
-loadGallery();
-</script>
+  </script>
 </body>
 </html>
