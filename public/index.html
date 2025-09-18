@@ -1,127 +1,42 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Upload Panel</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    input, button { margin: 5px 0; padding: 8px; }
-    #uploads { margin-top: 20px; }
-    .file-item { margin-bottom: 10px; }
-    .status { font-size: 0.9em; color: green; }
-    .error { color: red; }
-  </style>
+  <title>Admin Upload</title>
 </head>
 <body>
-  <h1>Admin Upload Panel</h1>
+  <h1>Login</h1>
+  <form id="loginForm">
+    <input name="username" placeholder="Username"><br>
+    <input name="password" type="password" placeholder="Password"><br>
+    <button>Login</button>
+  </form>
 
-  <div id="loginDiv">
-    <h3>Login</h3>
-    <input type="text" id="username" placeholder="Username"><br>
-    <input type="password" id="password" placeholder="Password"><br>
-    <button onclick="login()">Login</button>
-    <p id="loginMsg" class="error"></p>
-  </div>
-
-  <div id="uploadDiv" style="display:none;">
-    <h3>Upload File</h3>
-    <input type="file" id="fileInput"><br>
-    <input type="text" id="name" placeholder="File Name"><br>
-    <input type="text" id="description" placeholder="Description"><br>
-    <button onclick="uploadFile()">Upload</button>
-    <p id="uploadStatus" class="status"></p>
-
-    <h3>Uploaded Files</h3>
-    <div id="uploads"></div>
-  </div>
+  <h1>Upload</h1>
+  <form id="uploadForm">
+    <input name="name" placeholder="Name"><br>
+    <input name="description" placeholder="Description"><br>
+    <input type="file" name="photo"><br>
+    <button>Upload</button>
+  </form>
 
   <script>
     let token = '';
-
-    function login() {
-      const username = document.getElementById('username').value;
-      const password = document.getElementById('password').value;
-      fetch('/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if(data.token) {
-          token = data.token;
-          document.getElementById('loginDiv').style.display = 'none';
-          document.getElementById('uploadDiv').style.display = 'block';
-          loadUploads();
-        } else {
-          document.getElementById('loginMsg').innerText = data.error || 'Login failed';
-        }
-      });
+    document.getElementById('loginForm').onsubmit = async e => {
+      e.preventDefault();
+      const form = Object.fromEntries(new FormData(e.target));
+      const res = await fetch('/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(form) });
+      const data = await res.json();
+      token = data.token;
+      alert('Logged in');
     }
 
-    function uploadFile() {
-      const file = document.getElementById('fileInput').files[0];
-      const name = document.getElementById('name').value;
-      const description = document.getElementById('description').value;
-      if(!file) return alert('Select a file!');
-
-      const formData = new FormData();
-      formData.append('photo', file);
-      formData.append('name', name);
-      formData.append('description', description);
-
-      document.getElementById('uploadStatus').innerText = 'Uploading...';
-
-      fetch('/upload', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + token },
-        body: formData
-      })
-      .then(res => res.json())
-      .then(data => {
-        if(data.success) {
-          document.getElementById('uploadStatus').innerText = 'Uploaded! Saving to Mega...';
-          loadUploads();
-        } else {
-          document.getElementById('uploadStatus').innerText = data.error || 'Upload failed';
-        }
-      })
-      .catch(err => {
-        document.getElementById('uploadStatus').innerText = 'Error: ' + err.message;
-      });
-    }
-
-    function loadUploads() {
-      fetch('/uploads/')
-      .then(res => res.json())
-      .then(files => {
-        const uploadsDiv = document.getElementById('uploads');
-        uploadsDiv.innerHTML = '';
-        files.forEach(f => {
-          const div = document.createElement('div');
-          div.className = 'file-item';
-          div.innerHTML = `
-            <b>${f.name}</b> - ${f.description} 
-            <a href="/uploads/${f.file}" target="_blank">View</a> 
-            <button onclick="deleteFile('${f.file}')">Delete</button>
-          `;
-          uploadsDiv.appendChild(div);
-        });
-      });
-    }
-
-    function deleteFile(filename) {
-      if(!confirm('Delete this file?')) return;
-      fetch('/uploads/' + filename, {
-        method: 'DELETE',
-        headers: { 'Authorization': 'Bearer ' + token }
-      })
-      .then(res => res.json())
-      .then(data => {
-        if(data.success) loadUploads();
-        else alert(data.error || 'Delete failed');
-      });
+    document.getElementById('uploadForm').onsubmit = async e => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const res = await fetch('/upload', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData });
+      const data = await res.json();
+      alert(JSON.stringify(data));
     }
   </script>
 </body>
