@@ -1,244 +1,52 @@
-<!doctype html>
-<html lang="si">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>MEGA Upload Admin</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gojo Pair Web</title>
   <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial; max-width:900px; margin:24px auto; padding:12px; }
-    header { display:flex; align-items:center; gap:12px; margin-bottom:18px; }
-    h1 { margin:0; font-size:20px; }
-    .card { border:1px solid #e4e4e4; padding:14px; border-radius:8px; margin-bottom:12px; }
-    label { display:block; margin:8px 0 4px; font-size:14px; }
-    input[type="text"], input[type="password"], textarea { width:100%; padding:8px; box-sizing:border-box; border-radius:6px; border:1px solid #d0d0d0; }
-    button { padding:8px 12px; border-radius:6px; border:0; cursor:pointer; }
-    .muted { color:#666; font-size:13px; }
-    .row { display:flex; gap:8px; align-items:center; }
-    .gallery-item { border-top:1px dashed #eee; padding:10px 0; display:flex; justify-content:space-between; gap:12px; align-items:center; }
-    .gallery-left { flex:1; }
-    a.mlink { word-break:break-all; color: #0b63d6; text-decoration:none; }
-    .small { font-size:13px; color:#444; }
+    body { font-family: Arial, sans-serif; text-align:center; margin:50px; }
+    h1 { color: #4CAF50; }
+    form { margin-top:20px; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>MEGA Upload Admin</h1>
-    <div class="muted">(Login → Upload → Manage)</div>
-  </header>
+  <h1>🚀 Gojo Pair Web</h1>
+  <p>Upload files directly to Mega cloud ✅</p>
 
-  <!-- Login -->
-  <section class="card" id="loginCard">
-    <h2 style="margin:0 0 8px 0;font-size:16px">Admin Login</h2>
-    <label>Username</label>
-    <input id="username" type="text" value="sayura" />
-    <label>Password</label>
-    <input id="password" type="password" />
-    <div style="margin-top:10px;">
-      <button id="btnLogin">Login</button>
-      <button id="btnLogout" style="display:none; margin-left:8px;">Logout</button>
-      <span id="loginMsg" class="muted" style="margin-left:12px"></span>
-    </div>
-  </section>
+  <form id="uploadForm" enctype="multipart/form-data">
+    <input type="file" name="file" required />
+    <button type="submit">Upload</button>
+  </form>
 
-  <!-- Upload -->
-  <section class="card" id="uploadCard" style="display:none;">
-    <h2 style="margin:0 0 8px 0;font-size:16px">Upload to MEGA</h2>
-    <label>File</label>
-    <input id="fileInput" type="file" />
-    <label>Display name</label>
-    <input id="dispName" type="text" placeholder="Optional display name" />
-    <label>Description</label>
-    <textarea id="desc" rows="2" placeholder="Optional description"></textarea>
-    <div style="margin-top:10px;">
-      <button id="btnUpload">Upload</button>
-      <span id="uploadMsg" class="muted" style="margin-left:12px"></span>
-    </div>
-  </section>
-
-  <!-- Gallery -->
-  <section class="card">
-    <h2 style="margin:0 0 8px 0;font-size:16px">Gallery</h2>
-    <div style="margin-bottom:8px;">
-      <button id="btnRefresh">Refresh</button>
-      <span class="muted" style="margin-left:8px">Auto shows list from <code>/uploads</code></span>
-    </div>
-    <div id="gallery"></div>
-  </section>
+  <p id="result"></p>
 
   <script>
-    const baseURL = ''; // same origin
-    const tokenKey = 'mega_admin_token';
+    const form = document.getElementById("uploadForm");
+    const result = document.getElementById("result");
 
-    // DOM
-    const usernameEl = document.getElementById('username');
-    const passwordEl = document.getElementById('password');
-    const btnLogin = document.getElementById('btnLogin');
-    const btnLogout = document.getElementById('btnLogout');
-    const loginMsg = document.getElementById('loginMsg');
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fileInput = form.querySelector("input[type=file]");
+      if (!fileInput.files.length) return;
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
 
-    const uploadCard = document.getElementById('uploadCard');
-    const fileInput = document.getElementById('fileInput');
-    const dispName = document.getElementById('dispName');
-    const desc = document.getElementById('desc');
-    const btnUpload = document.getElementById('btnUpload');
-    const uploadMsg = document.getElementById('uploadMsg');
+      result.textContent = "Uploading...";
 
-    const galleryEl = document.getElementById('gallery');
-    const btnRefresh = document.getElementById('btnRefresh');
-
-    // Helpers
-    function setToken(t) {
-      if (t) {
-        localStorage.setItem(tokenKey, t);
-        uploadCard.style.display = 'block';
-        btnLogout.style.display = 'inline-block';
-        btnLogin.style.display = 'none';
-        loginMsg.textContent = 'Logged in';
-      } else {
-        localStorage.removeItem(tokenKey);
-        uploadCard.style.display = 'none';
-        btnLogout.style.display = 'none';
-        btnLogin.style.display = 'inline-block';
-        loginMsg.textContent = '';
-      }
-    }
-
-    function getToken() {
-      return localStorage.getItem(tokenKey);
-    }
-
-    // Init
-    if (getToken()) setToken(getToken());
-
-    // Login
-    btnLogin.addEventListener('click', async () => {
-      loginMsg.textContent = 'Logging in...';
       try {
-        const res = await fetch(baseURL + '/login', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ username: usernameEl.value, password: passwordEl.value })
-        });
-        const data = await res.json();
-        if (res.ok && data.token) {
-          setToken(data.token);
-        } else {
-          loginMsg.textContent = data.error || 'Login failed';
-        }
-      } catch (err) {
-        loginMsg.textContent = 'Network error';
-      }
-    });
-
-    btnLogout.addEventListener('click', () => {
-      setToken(null);
-    });
-
-    // Upload
-    btnUpload.addEventListener('click', async () => {
-      uploadMsg.textContent = '';
-      const file = fileInput.files[0];
-      if (!file) { uploadMsg.textContent = 'No file selected'; return; }
-      const t = getToken();
-      if (!t) { uploadMsg.textContent = 'Not logged in'; return; }
-
-      const form = new FormData();
-      form.append('photo', file);
-      form.append('name', dispName.value || file.name);
-      form.append('description', desc.value || '');
-
-      uploadMsg.textContent = 'Uploading...';
-      try {
-        const res = await fetch(baseURL + '/upload', {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + t },
-          body: form
-        });
+        const res = await fetch("/upload", { method: "POST", body: formData });
         const data = await res.json();
         if (res.ok) {
-          uploadMsg.textContent = 'Uploaded ✓';
-          fileInput.value = '';
-          dispName.value = '';
-          desc.value = '';
-          refreshGallery();
+          result.innerHTML = `✅ Uploaded: <a href="${data.megaLink}" target="_blank">${data.megaLink}</a>`;
+          fileInput.value = "";
         } else {
-          uploadMsg.textContent = data.error || 'Upload failed';
+          result.textContent = data.error || "Upload failed";
         }
       } catch (err) {
-        uploadMsg.textContent = 'Network error';
+        result.textContent = "Network error";
       }
     });
-
-    // Refresh gallery
-    async function refreshGallery() {
-      galleryEl.innerHTML = 'Loading...';
-      try {
-        const res = await fetch(baseURL + '/uploads');
-        const arr = await res.json();
-        if (!Array.isArray(arr)) {
-          galleryEl.innerHTML = '<div class="muted">API returned invalid data</div>';
-          return;
-        }
-        if (arr.length === 0) {
-          galleryEl.innerHTML = '<div class="muted">No uploads yet</div>';
-          return;
-        }
-        galleryEl.innerHTML = '';
-        arr.slice().reverse().forEach(item => {
-          const div = document.createElement('div');
-          div.className = 'gallery-item';
-          const left = document.createElement('div');
-          left.className = 'gallery-left';
-          left.innerHTML = `<div style="font-weight:600">${escapeHtml(item.name || item.file)}</div>
-                            <div class="small">${escapeHtml(item.description || '')}</div>
-                            <div style="margin-top:6px;"><a class="mlink" href="${escapeHtml(item.megaLink || '#')}" target="_blank">${escapeHtml(item.megaLink || 'No link')}</a></div>`;
-          const right = document.createElement('div');
-          right.style.whiteSpace = 'nowrap';
-          const delBtn = document.createElement('button');
-          delBtn.textContent = 'Delete';
-          delBtn.addEventListener('click', () => deleteItem(item.file));
-          right.appendChild(delBtn);
-          div.appendChild(left);
-          div.appendChild(right);
-          galleryEl.appendChild(div);
-        });
-      } catch (err) {
-        galleryEl.innerHTML = '<div class="muted">Failed to load</div>';
-      }
-    }
-
-    // Delete
-    async function deleteItem(fileName) {
-      if (!confirm('Delete "' + fileName + '" from gallery meta?')) return;
-      const t = getToken();
-      if (!t) { alert('Not logged in'); return; }
-      try {
-        const res = await fetch(baseURL + '/uploads/' + encodeURIComponent(fileName), {
-          method: 'DELETE',
-          headers: { 'Authorization': 'Bearer ' + t }
-        });
-        const data = await res.json();
-        if (res.ok) {
-          refreshGallery();
-        } else {
-          alert(data.error || 'Delete failed');
-        }
-      } catch (err) {
-        alert('Network error');
-      }
-    }
-
-    // Utilities
-    function escapeHtml(s) {
-      if (!s) return '';
-      return s.replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-    }
-
-    // Events
-    btnRefresh.addEventListener('click', refreshGallery);
-
-    // initial load
-    refreshGallery();
   </script>
 </body>
 </html>
