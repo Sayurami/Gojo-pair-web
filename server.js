@@ -5,118 +5,88 @@ const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
+const { uploadToMega } = require('./mega'); // MEGA module
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // 🔑 Config
-const JWT_SECRET = process.env.JWT_SECRET || 'Sayura2008***7111s';
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'sayura';
-const ADMIN_PASSWORD_HASH = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'Sayura2008***7', 10);
+const JWT_SECRET = 'Sayura2008***7111s';
+const ADMIN_USERNAME = 'sayura';
+const ADMIN_PASSWORD_HASH = bcrypt.hashSync('Sayura2008***7', 10);
 
-// 📂 Upload path
+// Upload path
 const uploadDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-// Multer storage
+// Multer
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
 });
 const upload = multer({ storage });
 
-app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 
 const metaFile = path.join(uploadDir, 'meta.json');
 
-// 🔑 JWT generation
-function generateToken(user) {
-  return jwt.sign({ username: user.username }, JWT_SECRET, { expiresIn: '2h' });
-}
-
-// 🛡 JWT verification middleware
+// JWT helpers
+function generateToken(user) { return jwt.sign({ username: user.username }, JWT_SECRET, { expiresIn: '2h' }); }
 function verifyToken(req, res, next) {
   const token = req.headers['authorization'];
   if (!token) return res.status(403).json({ error: 'No token provided' });
-
   jwt.verify(token.replace('Bearer ', ''), JWT_SECRET, (err, decoded) => {
     if (err) return res.status(401).json({ error: 'Unauthorized' });
-    req.user = decoded;
-    next();
+    req.user = decoded; next();
   });
 }
 
-// Helper: safely read meta.json
-function readMeta() {
-  try {
-    if (!fs.existsSync(metaFile)) return [];
-    const content = fs.readFileSync(metaFile, 'utf-8').trim();
-    if (!content) return [];
-    return JSON.parse(content);
-  } catch (err) {
-    console.error('Error reading meta.json:', err);
-    return [];
-  }
-}
+// Meta helpers
+function readMeta() { try { if (!fs.existsSync(metaFile)) return []; return JSON.parse(fs.readFileSync(metaFile, 'utf-8')); } catch { return []; } }
+function writeMeta(meta) { try { fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2)); } catch (err) { console.error(err); } }
 
-// Helper: safely write meta.json
-function writeMeta(meta) {
-  try {
-    fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
-  } catch (err) {
-    console.error('Error writing meta.json:', err);
-  }
-}
-
-// 🟢 Admin login
+// Login
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
-
-  if (username !== ADMIN_USERNAME || !bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) {
-    return res.status(401).json({ error: 'Invalid username or password' });
-  }
-
+  if (username !== ADMIN_USERNAME || !bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) return res.status(401).json({ error: 'Invalid username or password' });
   const token = generateToken({ username });
   res.json({ token });
 });
 
-// 🔒 Admin upload
-app.post('/upload', verifyToken, upload.single('photo'), (req, res) => {
+// Upload route
+app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded!' });
 
   const { name, description } = req.body;
   const meta = readMeta();
 
-  meta.push({
-    file: req.file.filename,
-    name: name || 'No Name',
-    description: description || 'No Description'
-  });
-
+  const entry = { file: req.file.filename, name: name || 'No Name', description: description || 'No Description', megaLink: null };
+  meta.push(entry);
   writeMeta(meta);
-  res.json({ success: true, filePath: '/uploads/' + req.file.filename });
+
+  // Upload to MEGA
+  try {
+    const megaLink = await uploadToMega(req.file.filename);
+    res.json({ success: true, filePath: '/uploads/' + req.file.filename, megaLink });
+  } catch {
+    res.json({ success: true, filePath: '/uploads/' + req.file.filename, megaLink: null });
+  }
 });
 
-// 🌍 Public gallery
-app.get('/uploads/', (req, res) => {
-  const meta = readMeta();
-  res.json(meta);
-});
+// Public gallery
+app.get('/uploads', (req, res) => res.json(readMeta()));
 
-// 🔒 Admin delete
+// Delete route
 app.delete('/uploads/:file', verifyToken, (req, res) => {
   const fileName = req.params.file;
   const meta = readMeta();
   const index = meta.findIndex(m => m.file === fileName);
   if (index === -1) return res.status(404).json({ error: 'File not found' });
-
   const filePath = path.join(uploadDir, fileName);
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-
-  meta.splice(index, 1);
-  writeMeta(meta);
-
+  meta.splice(index, 1); writeMeta(meta);
   res.json({ success: true });
 });
 
