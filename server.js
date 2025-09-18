@@ -6,17 +6,23 @@ const path = require('path');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { google } = require('googleapis');
-
+const mega = require('megajs'); // Mega upload
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// 🔑 Admin credentials
-const JWT_SECRET = 'Sayura2008***7111s';
-const ADMIN_USERNAME = 'sayura';
-const ADMIN_PASSWORD_HASH = bcrypt.hashSync('Sayura2008***7', 10);
+// ================== Credentials ================== //
+// Hardcoded because .env not used on Heroku
+const JWT_SECRET = "Sayura2008***7111s";
+const ADMIN_USERNAME = "sayura";
+const ADMIN_PASSWORD_HASH = bcrypt.hashSync("Sayura2008***7", 10);
 
-// 📂 Local storage
+// Mega credentials
+const MEGA_EMAIL = "nnarutouzumaki25000@gmail.com";
+const MEGA_PASSWORD = "Sayura2008***7";
+const MEGA_FOLDER = "/Gojo-Uploads"; // Mega folder path
+
+// ================== Server & Storage ================== //
+const PORT = 3000;
+
 const uploadDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
@@ -32,7 +38,7 @@ app.use(express.urlencoded({ extended: true }));
 
 const metaFile = path.join(uploadDir, 'meta.json');
 
-// 🔑 JWT helpers
+// ================== JWT helpers ================== //
 function generateToken(user) {
   return jwt.sign({ username: user.username }, JWT_SECRET, { expiresIn: '2h' });
 }
@@ -47,7 +53,7 @@ function verifyToken(req, res, next) {
   });
 }
 
-// 🟢 Login route
+// ================== Login ================== //
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
   if (username !== ADMIN_USERNAME || !bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) {
@@ -57,50 +63,44 @@ app.post('/login', (req, res) => {
   res.json({ token });
 });
 
-// 🌍 Public gallery
+// ================== Public gallery ================== //
 app.get('/uploads/', (req, res) => {
   let meta = [];
   if (fs.existsSync(metaFile)) meta = JSON.parse(fs.readFileSync(metaFile));
   res.json(meta);
 });
 
-// 🔒 Google Drive config
-const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
-const KEYFILE = path.join(__dirname, 'service-account.json'); 
-const auth = new google.auth.GoogleAuth({
-  keyFile: KEYFILE,
-  scopes: SCOPES,
-});
-const drive = google.drive({ version: 'v3', auth });
-
-// 🔒 Admin upload route
-app.post('/upload', verifyToken, upload.single('photo'), (req, res) => {
+// ================== Upload (Admin) ================== //
+app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
   if (!req.file) return res.status(400).send('No file uploaded!');
   const { name, description } = req.body;
 
-  // Save metadata locally
   let meta = [];
   if (fs.existsSync(metaFile)) meta = JSON.parse(fs.readFileSync(metaFile));
-  const fileMeta = { file: req.file.filename, name: name || 'No Name', description: description || 'No Description' };
+
+  const fileMeta = {
+    file: req.file.filename,
+    name: name || 'No Name',
+    description: description || 'No Description',
+  };
   meta.push(fileMeta);
   fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
 
-  // Respond immediately
-  res.json({ success: true, filePath: '/uploads/' + req.file.filename });
+  // ================== Mega Upload ================== //
+  try {
+    const storage = new mega.Storage({ email: MEGA_EMAIL, password: MEGA_PASSWORD });
+    storage.on('ready', () => {
+      const file = storage.upload({ name: req.file.filename, localPath: path.join(uploadDir, req.file.filename), target: MEGA_FOLDER });
+      file.on('complete', () => console.log(`Uploaded to Mega: ${req.file.filename}`));
+    });
+  } catch (err) {
+    console.error('Mega upload error:', err);
+  }
 
-  // 🔄 Background Google Drive upload
-  (async () => {
-    try {
-      const gfile = await drive.files.create({
-        requestBody: { name: req.file.filename, parents: ['1hAve0c3_UjrJ7PEc3dDt4COUfsihfzmq'] },
-        media: { mimeType: req.file.mimetype, body: fs.createReadStream(path.join(uploadDir, req.file.filename)) },
-      });
-      console.log('Uploaded to Drive:', gfile.data.id);
-    } catch (err) { console.error('Drive upload failed:', err); }
-  })();
+  res.json({ success: true, filePath: '/uploads/' + req.file.filename });
 });
 
-// 🔒 Admin delete route
+// ================== Delete (Admin) ================== //
 app.delete('/uploads/:file', verifyToken, (req, res) => {
   const fileName = req.params.file;
   let meta = [];
@@ -118,5 +118,5 @@ app.delete('/uploads/:file', verifyToken, (req, res) => {
   res.json({ success: true });
 });
 
-// Start server
+// ================== Start server ================== //
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
