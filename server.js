@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+require('dotenv').config();
 
 const { uploadToMega } = require('./mega'); // MEGA module
 
@@ -13,23 +14,14 @@ const PORT = process.env.PORT || 3000;
 // ====================
 // Admin config
 // ====================
-const JWT_SECRET = 'Sayura2008***7111s';
-const ADMIN_USERNAME = 'sayura';
-const ADMIN_PASSWORD_HASH = bcrypt.hashSync('Sayura2008***7', 10);
+const JWT_SECRET = process.env.JWT_SECRET || 'Sayura2008***7111s';
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'sayura';
+const ADMIN_PASSWORD_HASH = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'Sayura2008***7', 10);
 
 // ====================
-// Upload folder
+// Multer memory storage (no local save)
 // ====================
-const uploadDir = path.join(__dirname, 'public', 'uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-// ====================
-// Multer setup
-// ====================
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
-});
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 // ====================
@@ -37,9 +29,8 @@ const upload = multer({ storage });
 // ====================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
 
-const metaFile = path.join(uploadDir, 'meta.json');
+const metaFile = path.join(__dirname, 'meta.json');
 
 // ====================
 // JWT helpers
@@ -102,25 +93,24 @@ app.post('/upload', verifyToken, upload.single('photo'), async (req, res) => {
   const { name, description } = req.body;
   const meta = readMeta();
 
-  const entry = {
-    file: req.file.filename,
-    name: name || 'No Name',
-    description: description || 'No Description',
-    megaLink: null
-  };
-  meta.push(entry);
-  writeMeta(meta);
-
-  // MEGA upload
   try {
-    const megaLink = await uploadToMega(req.file.filename);
-    entry.megaLink = megaLink;
-    writeMeta(meta); // save MEGA link
-    console.log(`[MEGA] Uploaded: ${req.file.filename}`);
-    res.json({ success: true, filePath: '/uploads/' + req.file.filename, megaLink });
+    // Upload buffer directly to MEGA
+    const megaLink = await uploadToMega(req.file.originalname, req.file.buffer);
+
+    const entry = {
+      file: req.file.originalname,
+      name: name || 'No Name',
+      description: description || 'No Description',
+      megaLink
+    };
+    meta.push(entry);
+    writeMeta(meta);
+
+    console.log(`[MEGA] Uploaded: ${req.file.originalname}`);
+    res.json({ success: true, megaLink });
   } catch (err) {
     console.error('[MEGA] Upload failed:', err);
-    res.json({ success: true, filePath: '/uploads/' + req.file.filename, megaLink: null });
+    res.status(500).json({ error: 'MEGA upload failed' });
   }
 });
 
@@ -132,16 +122,13 @@ app.get('/uploads', (req, res) => {
 });
 
 // ====================
-// Delete route
+// Delete route (only meta, no local file)
 // ====================
 app.delete('/uploads/:file', verifyToken, (req, res) => {
   const fileName = req.params.file;
   const meta = readMeta();
   const index = meta.findIndex(m => m.file === fileName);
   if (index === -1) return res.status(404).json({ error: 'File not found' });
-
-  const filePath = path.join(uploadDir, fileName);
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
   meta.splice(index, 1);
   writeMeta(meta);
