@@ -13,6 +13,7 @@ const uploadDir = path.join(publicDir, "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 app.use(express.static(publicDir));
+app.use("/uploads", express.static(uploadDir)); // serve local uploads
 app.get("/", (req, res) => res.sendFile(path.join(publicDir, "index.html")));
 
 // Meta file
@@ -37,6 +38,7 @@ app.post("/upload", upload.single("file"), async (req, res) => {
   let megaLink = null;
 
   try {
+    // Upload to MEGA
     megaLink = await uploadToMega(req.file.originalname, fs.readFileSync(localFilePath));
   } catch (err) {
     console.error("Mega upload failed:", err);
@@ -44,10 +46,18 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 
   // Save metadata
   const meta = readMeta();
-  meta.push({ filename: req.file.filename, megaLink });
+  meta.push({
+    filename: req.file.filename,
+    originalName: req.file.originalname,
+    megaLink
+  });
   writeMeta(meta);
 
-  res.json({ success: true, localPath: "/uploads/" + req.file.filename, megaLink });
+  res.json({
+    success: true,
+    localPath: "/uploads/" + req.file.filename,
+    megaLink
+  });
 });
 
 // List files
@@ -63,7 +73,7 @@ app.delete("/uploads/:filename", (req, res) => {
   const index = meta.findIndex(f => f.filename === filename);
   if (index === -1) return res.status(404).json({ error: "File not found" });
 
-  // Optional: delete local file
+  // delete local file
   const localPath = path.join(uploadDir, filename);
   if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
 
