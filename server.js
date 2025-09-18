@@ -2,7 +2,7 @@ const express = require("express");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const { uploadToMega } = require("./mega");
+const { uploadToMega } = require("./mega"); // Mega upload helper
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -42,7 +42,7 @@ app.post("/upload", upload.single("file"), async (req, res) => {
     console.error("Mega upload failed:", err);
   }
 
-  // Save meta
+  // Save metadata
   const meta = readMeta();
   meta.push({ filename: req.file.filename, megaLink });
   writeMeta(meta);
