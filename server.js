@@ -2,164 +2,103 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { google } = require('googleapis');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ------------------------
-// 🔹 Config
-// ------------------------
+// 🔑 Config
+const JWT_SECRET = process.env.JWT_SECRET || 'Sayura2008***7111s';
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'sayura';
+const ADMIN_PASSWORD_HASH = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'Sayura2008***7', 10);
+
+// 📂 Upload path
 const uploadDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-const metaFile = path.join(uploadDir, 'meta.json');
-
-// Google Drive setup
-const KEY_FILE = path.join(__dirname, 'service-account.json'); // JSON key path
-const FOLDER_ID = '1hAve0c3_UjrJ7PEc3dDt4COUfsihfzmq'; // Your folder ID
-
-const auth = new google.auth.GoogleAuth({
-  keyFile: KEY_FILE,
-  scopes: ['https://www.googleapis.com/auth/drive'],
-});
-const drive = google.drive({ version: 'v3', auth });
-
-// ------------------------
-// 🔹 Multer storage
-// ------------------------
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname)),
+  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
 });
 const upload = multer({ storage });
 
-// ------------------------
-// 🔹 Express setup
-// ------------------------
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ------------------------
-// 🔹 Upload route
-// ------------------------
-app.post('/upload', upload.single('photo'), async (req, res) => {
+const metaFile = path.join(uploadDir, 'meta.json');
+
+// 🔑 Generate JWT
+function generateToken(user) {
+  return jwt.sign({ username: user.username }, JWT_SECRET, { expiresIn: '2h' });
+}
+
+// 🛡 Verify JWT
+function verifyToken(req, res, next) {
+  const token = req.headers['authorization'];
+  if (!token) return res.status(403).json({ error: 'No token provided' });
+
+  jwt.verify(token.replace('Bearer ', ''), JWT_SECRET, (err, decoded) => {
+    if (err) return res.status(401).json({ error: 'Unauthorized' });
+    req.user = decoded;
+    next();
+  });
+}
+
+// 🟢 Login route
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+
+  if (username !== ADMIN_USERNAME || !bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) {
+    return res.status(401).json({ error: 'Invalid username or password' });
+  }
+
+  const token = generateToken({ username });
+  res.json({ token });
+});
+
+// 🔒 Upload route (Admin only)
+app.post('/upload', verifyToken, upload.single('photo'), (req, res) => {
   if (!req.file) return res.status(400).send('No file uploaded!');
   const { name, description } = req.body;
 
-  // Save meta
   let meta = [];
   if (fs.existsSync(metaFile)) meta = JSON.parse(fs.readFileSync(metaFile));
 
   meta.push({
     file: req.file.filename,
     name: name || 'No Name',
-    description: description || 'No Description',
+    description: description || 'No Description'
   });
 
   fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
-
-  // Upload to Drive
-  try {
-    await drive.files.create({
-      requestBody: {
-        name: req.file.filename,
-        parents: [FOLDER_ID],
-      },
-      media: {
-        body: fs.createReadStream(path.join(uploadDir, req.file.filename)),
-      },
-    });
-    console.log(`Uploaded ${req.file.filename} to Google Drive`);
-  } catch (err) {
-    console.error('Drive upload error:', err);
-  }
-
   res.json({ success: true, filePath: '/uploads/' + req.file.filename });
 });
 
-// ------------------------
-// 🔹 Public gallery
-// ------------------------
+// 🌍 Public route (Anyone can view)
 app.get('/uploads/', (req, res) => {
   let meta = [];
   if (fs.existsSync(metaFile)) meta = JSON.parse(fs.readFileSync(metaFile));
   res.json(meta);
 });
 
-// ------------------------
-// 🔹 Delete file
-// ------------------------
-app.delete('/uploads/:file', async (req, res) => {
+// 🔒 Delete file (Admin only)
+app.delete('/uploads/:file', verifyToken, (req, res) => {
   const fileName = req.params.file;
-
   let meta = [];
   if (fs.existsSync(metaFile)) meta = JSON.parse(fs.readFileSync(metaFile));
 
   const index = meta.findIndex(m => m.file === fileName);
   if (index === -1) return res.status(404).send('File not found');
 
-  // Remove file locally
   const filePath = path.join(uploadDir, fileName);
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
-  // Remove from Drive
-  try {
-    const driveList = await drive.files.list({
-      q: `'${FOLDER_ID}' in parents and name='${fileName}'`,
-      fields: 'files(id, name)',
-    });
-    const files = driveList.data.files;
-    for (const f of files) {
-      await drive.files.delete({ fileId: f.id });
-      console.log(`Deleted ${f.name} from Drive`);
-    }
-  } catch (err) {
-    console.error('Drive delete error:', err);
-  }
-
-  // Remove metadata
   meta.splice(index, 1);
   fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
 
   res.json({ success: true });
 });
 
-// ------------------------
-// 🔹 Sync from Drive on start
-// ------------------------
-async function syncFromDrive() {
-  try {
-    const driveList = await drive.files.list({
-      q: `'${FOLDER_ID}' in parents`,
-      fields: 'files(id, name)',
-    });
-    const files = driveList.data.files;
-
-    for (const f of files) {
-      const localPath = path.join(uploadDir, f.name);
-      if (!fs.existsSync(localPath)) {
-        const dest = fs.createWriteStream(localPath);
-        await drive.files.get({ fileId: f.id, alt: 'media' }, { responseType: 'stream' })
-          .then(res => new Promise((resolve, reject) => {
-            res.data
-              .on('end', () => resolve())
-              .on('error', err => reject(err))
-              .pipe(dest);
-          }));
-        console.log(`Downloaded ${f.name} from Drive`);
-      }
-    }
-  } catch (err) {
-    console.error('Drive sync error:', err);
-  }
-}
-
-// ------------------------
-// 🔹 Start server
-// ------------------------
-app.listen(PORT, async () => {
-  console.log(`Server running on port ${PORT}`);
-  await syncFromDrive(); // Auto sync on start
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
