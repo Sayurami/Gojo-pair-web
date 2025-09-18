@@ -3,50 +3,49 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gojo Pair Web</title>
-  <style>
-    body { font-family: Arial, sans-serif; text-align:center; margin:50px; }
-    h1 { color: #4CAF50; }
-    form { margin-top:20px; }
-  </style>
+  <title>Gojo Pair Web Upload</title>
 </head>
 <body>
-  <h1>🚀 Gojo Pair Web</h1>
-  <p>Upload files directly to Mega cloud ✅</p>
+  <h1>Upload File</h1>
 
   <form id="uploadForm" enctype="multipart/form-data">
     <input type="file" name="file" required />
     <button type="submit">Upload</button>
   </form>
 
-  <p id="result"></p>
+  <h2>Uploaded Files:</h2>
+  <ul id="fileList"></ul>
 
   <script>
     const form = document.getElementById("uploadForm");
-    const result = document.getElementById("result");
+    const fileList = document.getElementById("fileList");
+
+    async function loadFiles() {
+      const res = await fetch("/uploads");
+      const files = await res.json();
+      fileList.innerHTML = "";
+      files.forEach(f => {
+        const li = document.createElement("li");
+        li.innerHTML = `<a href="/uploads/${f}" target="_blank">${f}</a>`;
+        fileList.appendChild(li);
+      });
+    }
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const fileInput = form.querySelector("input[type=file]");
-      if (!fileInput.files.length) return;
       const formData = new FormData();
       formData.append("file", fileInput.files[0]);
 
-      result.textContent = "Uploading...";
+      const res = await fetch("/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      alert(data.megaLink ? `Mega: ${data.megaLink}` : "Uploaded locally");
 
-      try {
-        const res = await fetch("/upload", { method: "POST", body: formData });
-        const data = await res.json();
-        if (res.ok) {
-          result.innerHTML = `✅ Uploaded: <a href="${data.megaLink}" target="_blank">${data.megaLink}</a>`;
-          fileInput.value = "";
-        } else {
-          result.textContent = data.error || "Upload failed";
-        }
-      } catch (err) {
-        result.textContent = "Network error";
-      }
+      fileInput.value = "";
+      loadFiles();
     });
+
+    loadFiles();
   </script>
 </body>
 </html>
